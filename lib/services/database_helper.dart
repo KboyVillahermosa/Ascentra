@@ -22,12 +22,12 @@ class DatabaseHelper {
     try {
       Directory documentsDirectory = await getApplicationDocumentsDirectory();
       String path = join(documentsDirectory.path, 'user_database.db');
-      print('Database path: $path');
       
       return await openDatabase(
         path,
-        version: 1,
+        version: 2, // Increased version for schema update
         onCreate: _onCreate,
+        onUpgrade: _onUpgrade,
       );
     } catch (e) {
       print('Database initialization error: $e');
@@ -41,16 +41,90 @@ class DatabaseHelper {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT NOT NULL,
         email TEXT UNIQUE NOT NULL,
-        password TEXT NOT NULL
+        password TEXT,
+        photoUrl TEXT,
+        authProvider TEXT NOT NULL
       )
     ''');
-    print('Database created successfully');
   }
 
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // Add new columns for Google authentication
+      await db.execute('ALTER TABLE users ADD COLUMN photoUrl TEXT');
+      await db.execute('ALTER TABLE users ADD COLUMN authProvider TEXT DEFAULT "email"');
+      // Make password nullable
+      await db.execute('ALTER TABLE users RENAME TO temp_users');
+      await db.execute('''
+        CREATE TABLE users(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          username TEXT NOT NULL,
+          email TEXT UNIQUE NOT NULL,
+          password TEXT,
+          photoUrl TEXT,
+          authProvider TEXT NOT NULL
+        )
+      ''');
+      await db.execute('''
+        INSERT INTO users (id, username, email, password, authProvider)
+        SELECT id, username, email, password, "email" FROM temp_users
+      ''');
+      await db.execute('DROP TABLE temp_users');
+    }
+  }
+
+  Future<User?> getUserByEmail(String email) async {
+    try {
+      Database db = await database;
+      List<Map<String, dynamic>> results = await db.query(
+        'users',
+        where: 'email = ?',
+        whereArgs: [email],
+      );
+
+      if (results.isNotEmpty) {
+        return User.fromMap(results.first);
+      }
+      return null;
+    } catch (e) {
+      print('Error getting user by email: $e');
+      return null;
+    }
+  }
+
+  Future<int> insertOrUpdateGoogleUser(User user) async {
+    try {
+      Database db = await database;
+      // Check if user with this email already exists
+      User? existingUser = await getUserByEmail(user.email);
+      
+      if (existingUser != null) {
+        // Update existing user
+        await db.update(
+          'users',
+          {
+            'username': user.username,
+            'photoUrl': user.photoUrl,
+            'authProvider': 'google',
+          },
+          where: 'email = ?',
+          whereArgs: [user.email],
+        );
+        return existingUser.id!;
+      } else {
+        // Insert new user
+        return await db.insert('users', user.toMap());
+      }
+    } catch (e) {
+      print('Error inserting/updating Google user: $e');
+      return -1;
+    }
+  }
+
+  // Keep existing methods for email-based login
   Future<int> insertUser(User user) async {
     try {
       Database db = await database;
-      print('Attempting to insert user: ${user.email}');
       
       // Check if email already exists
       List<Map<String, dynamic>> result = await db.query(
@@ -60,16 +134,13 @@ class DatabaseHelper {
       );
       
       if (result.isNotEmpty) {
-        print('Email already exists');
         return -1; // Email already exists
       }
       
-      int id = await db.insert('users', user.toMap());
-      print('User inserted with ID: $id');
-      return id;
+      return await db.insert('users', user.toMap());
     } catch (e) {
       print('Error inserting user: $e');
-      return -2; // Error occurred
+      return -2;
     }
   }
 

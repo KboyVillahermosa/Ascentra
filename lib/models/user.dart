@@ -2,13 +2,17 @@ class User {
   final int? id;
   final String username;
   final String email;
-  final String password;
+  final String? password; // Optional for Google sign-in
+  final String? photoUrl;
+  final String? authProvider; // 'email' or 'google'
 
   User({
     this.id,
     required this.username,
     required this.email,
-    required this.password,
+    this.password,
+    this.photoUrl,
+    this.authProvider = 'email',
   });
 
   Map<String, dynamic> toMap() {
@@ -17,6 +21,8 @@ class User {
       'username': username,
       'email': email,
       'password': password,
+      'photoUrl': photoUrl,
+      'authProvider': authProvider,
     };
   }
 
@@ -26,6 +32,8 @@ class User {
       username: map['username'],
       email: map['email'],
       password: map['password'],
+      photoUrl: map['photoUrl'],
+      authProvider: map['authProvider'],
     );
   }
 }

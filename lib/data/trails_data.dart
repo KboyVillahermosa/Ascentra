@@ -1,0 +1,69 @@
+import '../models/trail.dart';
+
+class TrailsData {
+  static List<Trail> getTrails() {
+    return [
+      Trail(
+        id: '1',
+        name: 'Mount Manunggal',
+        location: 'Balamban, Cebu',
+        elevation: 982,
+        difficulty: 'Moderate to Challenging',
+        bestTime: 'Dry season (December to May)',
+        necessities: 'Sturdy hiking shoes, ample water, sun protection, and a first-aid kit',
+        description: 'Mount Manunggal is historically significant as the crash site of President Ramon Magsaysay\'s plane in 1957. The trail offers scenic views of the Central Cebu Protected Landscape and passes through local farmlands. At the summit, hikers can find a monument dedicated to the late president. The area is rich in biodiversity and provides a serene environment for reflection and appreciation of nature.',
+        latitude: 10.4292,
+        longitude: 123.7436,
+      ),
+      Trail(
+        id: '2',
+        name: 'Kan-irag Nature Park',
+        location: 'Pung-ol Sibugay, Cebu City',
+        elevation: 700,
+        difficulty: 'Easy to Moderate',
+        bestTime: 'Early morning during the dry season',
+        necessities: 'Comfortable walking shoes, binoculars for birdwatching, water, and insect repellent',
+        description: 'Kan-irag Nature Park is a reforested area transformed into a thriving watershed and nature reserve. It is home to about 27 native bird species, making it a haven for bird enthusiasts. The park\'s lush greenery and serene ambiance provide an ideal setting for leisurely hikes and nature walks. Its proximity to the city makes it a convenient escape for urban dwellers seeking tranquility.',
+        latitude: 10.3857,
+        longitude: 123.8827,
+      ),
+      // Add more trails here...
+      Trail(
+        id: '3',
+        name: 'Mount Lantoy',
+        location: 'Argao, Cebu',
+        elevation: 593,
+        difficulty: 'Moderate',
+        bestTime: 'Dry season',
+        necessities: 'Waterproof footwear, trekking poles, sufficient water, and snacks',
+        description: 'Mount Lantoy is enveloped in local folklore, associated with the legend of Maria Cacao. The trail offers hikers a mix of cultural intrigue and natural beauty, passing through dense forests and alongside rivers. The summit provides panoramic views of the surrounding landscapes. It\'s a destination that combines adventure with a touch of mystique.',
+        latitude: 10.0553,
+        longitude: 123.6125,
+      ),
+      Trail(
+        id: '4',
+        name: 'Osmeña Peak',
+        location: 'Dalaguete, Cebu',
+        elevation: 1013,
+        difficulty: 'Easy to Moderate',
+        bestTime: 'Early morning to catch the sunrise',
+        necessities: 'Light jacket, water, camera, and snacks',
+        description: 'Osmeña Peak is the highest point in Cebu, offering breathtaking views of jagged hills and the coastline. The trail is relatively short, making it accessible to hikers of all levels. The peak is a popular spot for sunrise hikes, providing a picturesque setting as the sun illuminates the landscape.',
+        latitude: 9.7280,
+        longitude: 123.4636,
+      ),
+      Trail(
+        id: '5',
+        name: 'Sirao Peak',
+        location: 'Cebu City',
+        elevation: 700,
+        difficulty: 'Moderate',
+        bestTime: 'Dry season',
+        necessities: 'Hiking boots, water, sun protection, and insect repellent',
+        description: 'Sirao Peak, also known as Mt. Kan-Irag, offers hikers a challenging yet rewarding experience. The trail winds through forests and grasslands, culminating in panoramic views of Cebu City and the surrounding areas. The peak is also near the famous Sirao Flower Farm, allowing hikers to combine nature appreciation with cultural exploration.',
+        latitude: 10.3928,
+        longitude: 123.8878,
+      ),
+    ];
+  }
+}

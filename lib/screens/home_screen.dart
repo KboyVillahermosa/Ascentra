@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import '../data/trails_data.dart';
+import '../models/trail.dart';
+import 'trail_detail_screen.dart';
 import 'login_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -11,12 +14,12 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      _counter++;
-    });
+  List<Trail> trails = []; // Initialize with empty list
+  
+  @override
+  void initState() {
+    super.initState();
+    trails = TrailsData.getTrails(); // Load the data
   }
 
   @override
@@ -36,22 +39,66 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: Center(
+      body: Padding(
+        padding: const EdgeInsets.all(8.0),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Text(
+                'Cebu Hiking Trails',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            Expanded(
+              child: ListView.builder(
+                itemCount: trails.length,
+                itemBuilder: (context, index) {
+                  final trail = trails[index];
+                  return Card(
+                    elevation: 3,
+                    margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.all(16),
+                      title: Text(
+                        trail.name,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
+                      ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 8),
+                          Text('📍 ${trail.location}'),
+                          const SizedBox(height: 4),
+                          Text('🗻 Elevation: ${trail.elevation} meters'),
+                          const SizedBox(height: 4),
+                          Text('⚠️ Difficulty: ${trail.difficulty}'),
+                        ],
+                      ),
+                      isThreeLine: true,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => TrailDetailScreen(trail: trail),
+                          ),
+                        );
+                      },
+                      trailing: const Icon(Icons.arrow_forward_ios),
+                    ),
+                  );
+                },
+              ),
             ),
           ],
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
       ),
     );
   }

@@ -3,6 +3,8 @@ import '../data/trails_data.dart';
 import '../models/trail.dart';
 import 'trail_detail_screen.dart';
 import 'login_screen.dart';
+import 'record_screen.dart';
+import 'activity_history_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final String username;
@@ -15,11 +17,57 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   List<Trail> trails = []; // Initialize with empty list
+  int _selectedIndex = 0;
   
   @override
   void initState() {
     super.initState();
     trails = TrailsData.getTrails(); // Load the data
+  }
+
+  void _onItemTapped(int index) {
+    if (index == _selectedIndex) return;
+    
+    // Navigate to different screens based on the selected tab
+    switch (index) {
+      case 0: // Home tab - stay on this screen
+        setState(() {
+          _selectedIndex = 0;
+        });
+        break;
+      case 1: // Record tab
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const RecordScreen()),
+        ).then((_) => setState(() => _selectedIndex = 0));
+        break;
+      case 2: // History tab
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const ActivityHistoryScreen()),
+        ).then((_) => setState(() => _selectedIndex = 0));
+        break;
+      case 3: // Profile tab
+        // You can create a separate profile screen or show a dialog
+        _showProfileDialog();
+        break;
+    }
+  }
+  
+  void _showProfileDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('${widget.username}\'s Profile'),
+        content: const Text('Profile details coming soon!'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('CLOSE'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -123,6 +171,29 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed, // Important for 4+ items
+        currentIndex: _selectedIndex,
+        onTap: _onItemTapped,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.directions_run),
+            label: 'Record',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.history),
+            label: 'History',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: 'Profile',
+          ),
+        ],
       ),
     );
   }

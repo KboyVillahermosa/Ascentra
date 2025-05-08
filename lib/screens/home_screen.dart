@@ -5,6 +5,8 @@ import 'trail_detail_screen.dart';
 import 'login_screen.dart';
 import 'record_screen.dart';
 import 'activity_history_screen.dart';
+import 'create_post_screen.dart';
+import 'social_feed_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final String username;
@@ -47,8 +49,13 @@ class _HomeScreenState extends State<HomeScreen> {
           MaterialPageRoute(builder: (context) => const ActivityHistoryScreen()),
         ).then((_) => setState(() => _selectedIndex = 0));
         break;
-      case 3: // Profile tab
-        // You can create a separate profile screen or show a dialog
+      case 3: // Social Feed tab
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => SocialFeedScreen(username: widget.username)),
+        ).then((_) => setState(() => _selectedIndex = 0));
+        break;
+      case 4: // Profile tab
         _showProfileDialog();
         break;
     }
@@ -172,8 +179,19 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => CreatePostScreen(username: widget.username)),
+          );
+        },
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        child: const Icon(Icons.add_photo_alternate),
+        tooltip: 'Create Post',
+      ),
       bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed, // Important for 4+ items
+        type: BottomNavigationBarType.fixed, // Important for 5+ items
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
         items: const [
@@ -188,6 +206,10 @@ class _HomeScreenState extends State<HomeScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.history),
             label: 'History',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.photo_library),
+            label: 'Social',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),

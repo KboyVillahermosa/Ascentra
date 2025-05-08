@@ -91,12 +91,19 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Custom color palette
+    const Color textColor = Color(0xFF071511); // Very dark green
+    const Color backgroundColor = Color(0xFFF8FDFC); // Very light mint
+    const Color primaryColor = Color(0xFF4FC3A1); // Teal/mint green
+    const Color secondaryColor = Color(0xFF9999DC); // Lavender/light purple
+    const Color accentColor = Color(0xFF9F74CF); // Medium purple
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: backgroundColor,
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
+        backgroundColor: backgroundColor,
+        foregroundColor: textColor,
       ),
       body: SafeArea(
         child: Padding(
@@ -113,7 +120,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     style: TextStyle(
                       fontSize: 28, 
                       fontWeight: FontWeight.bold,
-                      color: Colors.black87,
+                      color: textColor,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -121,7 +128,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     'Sign in to continue',
                     style: TextStyle(
                       fontSize: 16,
-                      color: Colors.black54,
+                      color: secondaryColor,
                     ),
                   ),
                   const SizedBox(height: 40),
@@ -141,19 +148,19 @@ class _LoginScreenState extends State<LoginScreen> {
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                color: Colors.grey.shade300,
+                                color: secondaryColor,
                                 width: 0.5,
                               ),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                color: Theme.of(context).primaryColor,
+                                color: primaryColor,
                                 width: 1.0,
                               ),
                             ),
                             filled: true,
-                            fillColor: Colors.grey.shade50,
+                            fillColor: backgroundColor,
                             contentPadding: const EdgeInsets.symmetric(
                               horizontal: 16,
                               vertical: 16,
@@ -185,19 +192,19 @@ class _LoginScreenState extends State<LoginScreen> {
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                color: Colors.grey.shade300,
+                                color: secondaryColor,
                                 width: 0.5,
                               ),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                color: Theme.of(context).primaryColor,
+                                color: primaryColor,
                                 width: 1.0,
                               ),
                             ),
                             filled: true,
-                            fillColor: Colors.grey.shade50,
+                            fillColor: backgroundColor,
                             contentPadding: const EdgeInsets.symmetric(
                               horizontal: 16,
                               vertical: 16,
@@ -234,7 +241,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 onPressed: _login,
                                 style: ElevatedButton.styleFrom(
                                   minimumSize: const Size.fromHeight(56),
-                                  backgroundColor: Theme.of(context).primaryColor,
+                                  backgroundColor: primaryColor,
                                   foregroundColor: Colors.white,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
@@ -257,7 +264,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     children: [
                       Expanded(
                         child: Divider(
-                          color: Colors.grey.shade300,
+                          color: secondaryColor,
                           thickness: 0.5,
                         ),
                       ),
@@ -266,14 +273,14 @@ class _LoginScreenState extends State<LoginScreen> {
                         child: Text(
                           'OR',
                           style: TextStyle(
-                            color: Colors.grey.shade600,
+                            color: textColor,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
                       ),
                       Expanded(
                         child: Divider(
-                          color: Colors.grey.shade300,
+                          color: secondaryColor,
                           thickness: 0.5,
                         ),
                       ),
@@ -291,11 +298,11 @@ class _LoginScreenState extends State<LoginScreen> {
                           onPressed: _signInWithGoogle,
                           style: OutlinedButton.styleFrom(
                             minimumSize: const Size.fromHeight(56),
-                            side: BorderSide(color: Colors.grey.shade300),
+                            side: BorderSide(color: secondaryColor),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            foregroundColor: Colors.black87,
+                            foregroundColor: textColor,
                           ),
                         ),
                   const SizedBox(height: 24),
@@ -304,7 +311,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     children: [
                       Text(
                         'Don\'t have an account?',
-                        style: TextStyle(color: Colors.grey.shade600),
+                        style: TextStyle(color: textColor),
                       ),
                       TextButton(
                         onPressed: () {

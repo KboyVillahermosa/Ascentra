@@ -9,6 +9,7 @@ class Trail {
   final String description;
   final double latitude;
   final double longitude;
+  final String image; // Add this property
 
   Trail({
     required this.id,
@@ -21,5 +22,6 @@ class Trail {
     required this.description,
     required this.latitude,
     required this.longitude,
+    required this.image, // Add this parameter
   });
 }

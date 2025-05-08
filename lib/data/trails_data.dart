@@ -14,6 +14,7 @@ class TrailsData {
         description: 'Mount Manunggal is historically significant as the crash site of President Ramon Magsaysay\'s plane in 1957. The trail offers scenic views of the Central Cebu Protected Landscape and passes through local farmlands. At the summit, hikers can find a monument dedicated to the late president. The area is rich in biodiversity and provides a serene environment for reflection and appreciation of nature.',
         latitude: 10.4292,
         longitude: 123.7436,
+        image: 'assets/trail1.jpg',
       ),
       Trail(
         id: '2',
@@ -26,8 +27,8 @@ class TrailsData {
         description: 'Kan-irag Nature Park is a reforested area transformed into a thriving watershed and nature reserve. It is home to about 27 native bird species, making it a haven for bird enthusiasts. The park\'s lush greenery and serene ambiance provide an ideal setting for leisurely hikes and nature walks. Its proximity to the city makes it a convenient escape for urban dwellers seeking tranquility.',
         latitude: 10.3857,
         longitude: 123.8827,
+        image: 'assets/trail2.jpg',
       ),
-      // Add more trails here...
       Trail(
         id: '3',
         name: 'Mount Lantoy',
@@ -39,6 +40,7 @@ class TrailsData {
         description: 'Mount Lantoy is enveloped in local folklore, associated with the legend of Maria Cacao. The trail offers hikers a mix of cultural intrigue and natural beauty, passing through dense forests and alongside rivers. The summit provides panoramic views of the surrounding landscapes. It\'s a destination that combines adventure with a touch of mystique.',
         latitude: 10.0553,
         longitude: 123.6125,
+        image: 'assets/trail3.jpg',
       ),
       Trail(
         id: '4',
@@ -51,6 +53,7 @@ class TrailsData {
         description: 'Osmeña Peak is the highest point in Cebu, offering breathtaking views of jagged hills and the coastline. The trail is relatively short, making it accessible to hikers of all levels. The peak is a popular spot for sunrise hikes, providing a picturesque setting as the sun illuminates the landscape.',
         latitude: 9.7280,
         longitude: 123.4636,
+        image: 'assets/trail4.jpg',
       ),
       Trail(
         id: '5',
@@ -63,6 +66,7 @@ class TrailsData {
         description: 'Sirao Peak, also known as Mt. Kan-Irag, offers hikers a challenging yet rewarding experience. The trail winds through forests and grasslands, culminating in panoramic views of Cebu City and the surrounding areas. The peak is also near the famous Sirao Flower Farm, allowing hikers to combine nature appreciation with cultural exploration.',
         latitude: 10.3928,
         longitude: 123.8878,
+        image: 'assets/trail5.jpg',
       ),
     ];
   }

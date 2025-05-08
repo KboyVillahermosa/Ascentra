@@ -55,47 +55,71 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             Expanded(
-              child: ListView.builder(
-                itemCount: trails.length,
-                itemBuilder: (context, index) {
-                  final trail = trails[index];
-                  return Card(
-                    elevation: 3,
-                    margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.all(16),
-                      title: Text(
-                        trail.name,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
+              child: trails.isEmpty 
+                ? const Center(child: Text('No trails available'))
+                : ListView.builder(
+                    itemCount: trails.length,
+                    itemBuilder: (context, index) {
+                      final trail = trails[index];
+                      return Card(
+                        elevation: 3,
+                        margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Add image at the top of the card
+                            ClipRRect(
+                              borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                              child: Image.asset(
+                                trail.image,
+                                height: 150,
+                                width: double.infinity,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Container(
+                                    height: 150,
+                                    color: Colors.grey[300],
+                                    child: const Center(child: Text('Image not available')),
+                                  );
+                                },
+                              ),
+                            ),
+                            ListTile(
+                              contentPadding: const EdgeInsets.all(16),
+                              title: Text(
+                                trail.name,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                ),
+                              ),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const SizedBox(height: 8),
+                                  Text('📍 ${trail.location}'),
+                                  const SizedBox(height: 4),
+                                  Text('🗻 Elevation: ${trail.elevation} meters'),
+                                  const SizedBox(height: 4),
+                                  Text('⚠️ Difficulty: ${trail.difficulty}'),
+                                ],
+                              ),
+                              isThreeLine: true,
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => TrailDetailScreen(trail: trail),
+                                  ),
+                                );
+                              },
+                              trailing: const Icon(Icons.arrow_forward_ios),
+                            ),
+                          ],
                         ),
-                      ),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 8),
-                          Text('📍 ${trail.location}'),
-                          const SizedBox(height: 4),
-                          Text('🗻 Elevation: ${trail.elevation} meters'),
-                          const SizedBox(height: 4),
-                          Text('⚠️ Difficulty: ${trail.difficulty}'),
-                        ],
-                      ),
-                      isThreeLine: true,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => TrailDetailScreen(trail: trail),
-                          ),
-                        );
-                      },
-                      trailing: const Icon(Icons.arrow_forward_ios),
-                    ),
-                  );
-                },
-              ),
+                      );
+                    },
+                  ),
             ),
           ],
         ),

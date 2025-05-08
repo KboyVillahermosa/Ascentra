@@ -233,14 +233,10 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
               
               // Post media (image or video)
               if (post.mediaUrls.isNotEmpty)
-                post.isVideo
-                    ? _VideoPlayerWidget(videoPath: post.mediaUrls.first)
-                    : Image.file(
-                        File(post.mediaUrls.first),
-                        fit: BoxFit.cover,
-                        width: double.infinity,
-                        height: 300,
-                      ),
+                _MediaGridWidget(
+                  mediaUrls: post.mediaUrls,
+                  isVideo: post.isVideo,
+                ),
               
               // Post caption
               if (post.caption.isNotEmpty)
@@ -536,6 +532,319 @@ class _VideoPlayerWidgetState extends State<_VideoPlayerWidget> {
               ],
             )
           : const Center(child: CircularProgressIndicator()),
+    );
+  }
+}
+
+class _MediaGridWidget extends StatelessWidget {
+  final List<String> mediaUrls;
+  final bool isVideo;
+
+  const _MediaGridWidget({
+    required this.mediaUrls,
+    required this.isVideo,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // For a single media item
+    if (mediaUrls.length == 1) {
+      return GestureDetector(
+        onTap: () => _openMediaViewer(context, 0),
+        child: isVideo
+            ? _VideoPlayerWidget(videoPath: mediaUrls.first)
+            : Image.file(
+                File(mediaUrls.first),
+                fit: BoxFit.cover,
+                width: double.infinity,
+                height: 300,
+              ),
+      );
+    }
+
+    // For multiple media items
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        
+        // Show up to 4 items initially
+        final visibleCount = mediaUrls.length > 4 ? 4 : mediaUrls.length;
+        final hasMore = mediaUrls.length > 4;
+        
+        switch (visibleCount) {
+          case 2:
+            return SizedBox(
+              height: 200,
+              child: Row(
+                children: [
+                  _buildMediaItem(context, 0, width / 2, 200),
+                  const SizedBox(width: 2),
+                  _buildMediaItem(context, 1, width / 2, 200),
+                ],
+              ),
+            );
+          case 3:
+            return SizedBox(
+              height: 300,
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: 1,
+                    child: _buildMediaItem(context, 0, constraints.maxWidth / 2, 300),
+                  ),
+                  const SizedBox(width: 2),
+                  Expanded(
+                    flex: 1,
+                    child: Column(
+                      children: [
+                        _buildMediaItem(context, 1, constraints.maxWidth / 2, 149),
+                        const SizedBox(height: 2),
+                        _buildMediaItem(context, 2, constraints.maxWidth / 2, 149),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          case 4:
+            return SizedBox(
+              height: 300,
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: 1,
+                    child: Column(
+                      children: [
+                        _buildMediaItem(context, 0, constraints.maxWidth / 2, 149),
+                        const SizedBox(height: 2),
+                        _buildMediaItem(context, 2, constraints.maxWidth / 2, 149),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 2),
+                  Expanded(
+                    flex: 1,
+                    child: Column(
+                      children: [
+                        _buildMediaItem(context, 1, constraints.maxWidth / 2, 149),
+                        const SizedBox(height: 2),
+                        Stack(
+                          children: [
+                            _buildMediaItem(context, 3, constraints.maxWidth / 2, 149),
+                            if (hasMore)
+                              Positioned.fill(
+                                child: Container(
+                                  color: Colors.black.withOpacity(0.5),
+                                  child: Center(
+                                    child: Text(
+                                      '+${mediaUrls.length - 4}',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          default:
+            return const SizedBox(); // Should not happen
+        }
+      },
+    );
+  }
+
+  Widget _buildMediaItem(BuildContext context, int index, double width, double height) {
+    if (index >= mediaUrls.length) return const SizedBox();
+    
+    final mediaPath = mediaUrls[index];
+    final isVideoItem = isVideo || mediaPath.toLowerCase().endsWith('.mp4');
+    
+    return GestureDetector(
+      onTap: () => _openMediaViewer(context, index),
+      child: SizedBox(
+        width: width,
+        height: height,
+        child: isVideoItem
+          ? Stack(
+              alignment: Alignment.center,
+              children: [
+                // Video thumbnail
+                Container(
+                  width: width,
+                  height: height,
+                  color: Colors.black,
+                  child: const Center(child: Icon(Icons.play_circle_filled, color: Colors.white, size: 50)),
+                ),
+                // Play indicator
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration: const BoxDecoration(
+                    color: Colors.black38,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.play_arrow, color: Colors.white, size: 30),
+                ),
+              ],
+            )
+          : Image.file(
+              File(mediaPath),
+              fit: BoxFit.cover,
+              width: width,
+              height: height,
+            ),
+      ),
+    );
+  }
+
+  void _openMediaViewer(BuildContext context, int initialIndex) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => _MediaViewerModal(
+          mediaUrls: mediaUrls,
+          isVideo: isVideo,
+          initialIndex: initialIndex,
+        ),
+      ),
+    );
+  }
+}
+
+class _VideoThumbnail extends StatelessWidget {
+  final String videoPath;
+  final double width;
+  final double height;
+  
+  const _VideoThumbnail({
+    required this.videoPath,
+    required this.width,
+    required this.height,
+  });
+  
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        // Video thumbnail (could be extracted from the video, but using a placeholder here)
+        Container(
+          width: width,
+          height: height,
+          color: Colors.black,
+          child: const Center(child: Icon(Icons.play_circle_filled, color: Colors.white, size: 50)),
+        ),
+        // Play button
+        GestureDetector(
+          onTap: () {
+            // Show the full video player when tapped
+            showDialog(
+              context: context,
+              builder: (context) => Dialog(
+                insetPadding: const EdgeInsets.all(0),
+                backgroundColor: Colors.black,
+                child: _VideoPlayerWidget(videoPath: videoPath),
+              ),
+            );
+          },
+          child: Container(
+            width: 50,
+            height: 50,
+            decoration: const BoxDecoration(
+              color: Colors.black38,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.play_arrow, color: Colors.white, size: 30),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// Add this new widget for the media viewer modal
+class _MediaViewerModal extends StatefulWidget {
+  final List<String> mediaUrls;
+  final bool isVideo;
+  final int initialIndex;
+
+  const _MediaViewerModal({
+    required this.mediaUrls,
+    required this.isVideo,
+    required this.initialIndex,
+  });
+
+  @override
+  State<_MediaViewerModal> createState() => _MediaViewerModalState();
+}
+
+class _MediaViewerModalState extends State<_MediaViewerModal> {
+  late PageController _pageController;
+  late int _currentIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex;
+    _pageController = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        iconTheme: const IconThemeData(color: Colors.white),
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Text(
+          '${_currentIndex + 1}/${widget.mediaUrls.length}',
+          style: const TextStyle(color: Colors.white),
+        ),
+      ),
+      body: PageView.builder(
+        controller: _pageController,
+        itemCount: widget.mediaUrls.length,
+        onPageChanged: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
+        itemBuilder: (context, index) {
+          final mediaPath = widget.mediaUrls[index];
+          final isVideoItem = widget.isVideo || mediaPath.toLowerCase().endsWith('.mp4');
+          
+          return isVideoItem
+            ? _VideoPlayerWidget(videoPath: mediaPath)
+            : Center(
+                child: InteractiveViewer(
+                  minScale: 0.5,
+                  maxScale: 4.0,
+                  child: Image.file(
+                    File(mediaPath),
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              );
+        },
+      ),
     );
   }
 }

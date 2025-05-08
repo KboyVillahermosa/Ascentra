@@ -73,9 +73,10 @@ class _RecordScreenState extends State<RecordScreen> with WidgetsBindingObserver
   }
   
   Future<void> _checkLocationPermission() async {
-    final status = await Permission.location.request();
+    final locationStatus = await Permission.location.request();
+    final backgroundStatus = await Permission.locationAlways.request();
     
-    if (status.isGranted) {
+    if (locationStatus.isGranted) {
       _getCurrentLocation();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -201,14 +202,20 @@ class _RecordScreenState extends State<RecordScreen> with WidgetsBindingObserver
     
     _positionStream = Geolocator.getPositionStream(locationSettings: locationSettings)
       .listen((Position position) {
+        print('New position: ${position.latitude}, ${position.longitude}, accuracy: ${position.accuracy}m');
         final newPoint = latlong.LatLng(position.latitude, position.longitude);
+        
+        if (position.accuracy <= 20) { // Only add points with accuracy better than 20m
+          _routePoints.add(newPoint);
+          // Continue with calculations
+        } else {
+          print('Skipping low accuracy point: ${position.accuracy}m');
+        }
         
         setState(() {
           _currentPosition = position;
           _currentSpeed = position.speed * 3.6; // Convert m/s to km/h
           _locationAccuracy = position.accuracy;
-          
-          _routePoints.add(newPoint);
           
           final double prevElevation = _currentElevation;
           _currentElevation = position.altitude;
@@ -223,6 +230,7 @@ class _RecordScreenState extends State<RecordScreen> with WidgetsBindingObserver
               prevPoint.latitude, prevPoint.longitude,
               newPoint.latitude, newPoint.longitude
             );
+            print('Distance between points: ${distanceInMeters}m');
             _distance += distanceInMeters / 1000;
             
             if (_distance > 0) {
@@ -233,6 +241,10 @@ class _RecordScreenState extends State<RecordScreen> with WidgetsBindingObserver
             }
           }
         });
+        
+        if (_routePoints.isNotEmpty) {
+          print('Route points: ${_routePoints.length}');
+        }
         
         // Move map to follow user
         _mapController.move(newPoint, _mapController.zoom);

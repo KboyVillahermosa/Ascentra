@@ -7,6 +7,7 @@ import 'record_screen.dart';
 import 'activity_history_screen.dart';
 import 'create_post_screen.dart';
 import 'social_feed_screen.dart';
+import 'profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final String username;
@@ -55,26 +56,13 @@ class _HomeScreenState extends State<HomeScreen> {
           MaterialPageRoute(builder: (context) => SocialFeedScreen(username: widget.username)),
         ).then((_) => setState(() => _selectedIndex = 0));
         break;
-      case 4: // Profile tab
-        _showProfileDialog();
+      case 4: // Profile tab - Replace dialog with ProfileScreen
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => ProfileScreen(username: widget.username)),
+        ).then((_) => setState(() => _selectedIndex = 0));
         break;
     }
-  }
-  
-  void _showProfileDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('${widget.username}\'s Profile'),
-        content: const Text('Profile details coming soon!'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('CLOSE'),
-          ),
-        ],
-      ),
-    );
   }
 
   @override

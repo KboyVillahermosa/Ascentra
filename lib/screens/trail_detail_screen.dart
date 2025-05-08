@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // Add this import for clipboard
 import '../models/trail.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:share_plus/share_plus.dart'; // For sharing
 
 class TrailDetailScreen extends StatefulWidget {
   final Trail trail;
@@ -129,45 +127,12 @@ class _TrailDetailScreenState extends State<TrailDetailScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () {
-              // Copy to clipboard using built-in Flutter clipboard
-              Clipboard.setData(ClipboardData(text: '$lat, $lng'));
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Coordinates copied to clipboard')),
-              );
-              Navigator.of(context).pop();
-            },
-            child: const Text('COPY & CLOSE'),
-          ),
-          TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: const Text('CLOSE'),
           ),
         ],
       ),
     );
-  }
-
-  // Add this method to share trail location
-  void _shareTrailLocation() {
-    if (widget.trail.latitude == null || widget.trail.longitude == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Trail coordinates are not available')),
-      );
-      return;
-    }
-    
-    final lat = widget.trail.latitude!;
-    final lng = widget.trail.longitude!;
-    
-    // Create message with coordinates and a Google Maps link
-    final String message = 
-      '${widget.trail.name} - ${widget.trail.location}\n' +
-      'Coordinates: $lat, $lng\n' +
-      'View on Google Maps: https://www.google.com/maps/search/?api=1&query=$lat,$lng';
-    
-    // Share using share_plus package
-    Share.share(message, subject: 'Check out this hiking trail');
   }
 
   @override
@@ -293,20 +258,6 @@ class _TrailDetailScreenState extends State<TrailDetailScreen> {
                       onPressed: _openInGoogleMaps,
                       icon: const Icon(Icons.map),
                       label: const Text('Open in Google Maps'),
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  
-                  // Button to share trail information
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: _shareTrailLocation,
-                      icon: const Icon(Icons.share),
-                      label: const Text('Share Trail'),
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),

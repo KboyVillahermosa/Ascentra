@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../models/post.dart';
 import '../models/comment.dart';
 import '../services/post_service.dart';
+import '../services/user_service.dart';
 import 'create_post_screen.dart';
 import 'package:video_player/video_player.dart';
 
@@ -132,6 +133,11 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
     }
   }
   
+  Future<String?> _getProfileImagePath(String username) async {
+    final userProfile = await UserService.getUserProfile(username);
+    return userProfile?.profileImagePath;
+  }
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -186,80 +192,92 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
   }
   
   Widget _buildPostCard(Post post) {
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Post header with user info
-          ListTile(
-            leading: const CircleAvatar(
-              child: Icon(Icons.person),
-            ),
-            title: Text(post.username),
-            subtitle: Text(DateFormat('MMM d, y • h:mm a').format(post.timestamp)),
-            trailing: post.username == widget.username
-                ? PopupMenuButton<String>(
-                    onSelected: (value) {
-                      if (value == 'delete') {
-                        _deletePost(post);
-                      }
-                    },
-                    itemBuilder: (BuildContext context) => [
-                      const PopupMenuItem(
-                        value: 'delete',
-                        child: Text('Delete'),
-                      ),
-                    ],
-                  )
-                : null,
-          ),
-          
-          // Post media (image or video)
-          if (post.mediaUrls.isNotEmpty)
-            post.isVideo
-                ? _VideoPlayerWidget(videoPath: post.mediaUrls.first)
-                : Image.file(
-                    File(post.mediaUrls.first),
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    height: 300,
-                  ),
-          
-          // Post caption
-          if (post.caption.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Text(post.caption),
-            ),
-          
-          // Divider
-          const Divider(height: 0),
-          
-          // Like and comment buttons
-          Row(
+    return FutureBuilder<String?>(
+      future: _getProfileImagePath(post.username),
+      builder: (context, snapshot) {
+        final profileImagePath = snapshot.data;
+        
+        return Card(
+          margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Like button
-              IconButton(
-                icon: Icon(
-                  post.isLikedBy(widget.username) ? Icons.favorite : Icons.favorite_border,
-                  color: post.isLikedBy(widget.username) ? Colors.red : null,
+              // Post header with user info
+              ListTile(
+                leading: CircleAvatar(
+                  backgroundImage: profileImagePath != null
+                      ? FileImage(File(profileImagePath))
+                      : null,
+                  child: profileImagePath == null
+                      ? const Icon(Icons.person)
+                      : null,
                 ),
-                onPressed: () => _toggleLike(post),
+                title: Text(post.username),
+                subtitle: Text(DateFormat('MMM d, y • h:mm a').format(post.timestamp)),
+                trailing: post.username == widget.username
+                    ? PopupMenuButton<String>(
+                        onSelected: (value) {
+                          if (value == 'delete') {
+                            _deletePost(post);
+                          }
+                        },
+                        itemBuilder: (BuildContext context) => [
+                          const PopupMenuItem(
+                            value: 'delete',
+                            child: Text('Delete'),
+                          ),
+                        ],
+                      )
+                    : null,
               ),
-              Text('${post.likesCount}'),
-              const SizedBox(width: 16),
               
-              // Comment button
-              IconButton(
-                icon: const Icon(Icons.comment_outlined),
-                onPressed: () => _showCommentsDialog(post),
+              // Post media (image or video)
+              if (post.mediaUrls.isNotEmpty)
+                post.isVideo
+                    ? _VideoPlayerWidget(videoPath: post.mediaUrls.first)
+                    : Image.file(
+                        File(post.mediaUrls.first),
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        height: 300,
+                      ),
+              
+              // Post caption
+              if (post.caption.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text(post.caption),
+                ),
+              
+              // Divider
+              const Divider(height: 0),
+              
+              // Like and comment buttons
+              Row(
+                children: [
+                  // Like button
+                  IconButton(
+                    icon: Icon(
+                      post.isLikedBy(widget.username) ? Icons.favorite : Icons.favorite_border,
+                      color: post.isLikedBy(widget.username) ? Colors.red : null,
+                    ),
+                    onPressed: () => _toggleLike(post),
+                  ),
+                  Text('${post.likesCount}'),
+                  const SizedBox(width: 16),
+                  
+                  // Comment button
+                  IconButton(
+                    icon: const Icon(Icons.comment_outlined),
+                    onPressed: () => _showCommentsDialog(post),
+                  ),
+                  const Text('Comments'),
+                ],
               ),
-              const Text('Comments'),
             ],
           ),
-        ],
-      ),
+        );
+      }
     );
   }
 }

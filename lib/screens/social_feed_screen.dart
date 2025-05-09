@@ -17,14 +17,25 @@ class SocialFeedScreen extends StatefulWidget {
   State<SocialFeedScreen> createState() => _SocialFeedScreenState();
 }
 
-class _SocialFeedScreenState extends State<SocialFeedScreen> {
+class _SocialFeedScreenState extends State<SocialFeedScreen> with SingleTickerProviderStateMixin {
   List<Post> _posts = [];
   bool _isLoading = true;
+  AnimationController? _refreshIconController;
   
   @override
   void initState() {
     super.initState();
+    _refreshIconController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    );
     _loadPosts();
+  }
+  
+  @override
+  void dispose() {
+    _refreshIconController?.dispose();
+    super.dispose();
   }
   
   Future<void> _loadPosts() async {
@@ -32,17 +43,25 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
       _isLoading = true;
     });
     
+    _refreshIconController?.repeat();
+    
     try {
       final posts = await PostService.getAllPosts();
-      setState(() {
-        _posts = posts;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _posts = posts;
+          _isLoading = false;
+        });
+        _refreshIconController?.stop();
+      }
     } catch (e) {
       print('Error loading posts: $e');
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        _refreshIconController?.stop();
+      }
     }
   }
   
@@ -92,7 +111,6 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
   }
   
   Future<void> _deletePost(Post post) async {
-    // Only allow the post owner to delete
     if (post.username != widget.username) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('You can only delete your own posts')),
@@ -140,24 +158,67 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
   
   @override
   Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme colorScheme = theme.colorScheme;
+    
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Social Feed'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        title: Text(
+          'Social Feed',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.5,
+          ),
+        ),
+        backgroundColor: colorScheme.surface,
+        elevation: 0,
+        actions: [
+          if (_refreshIconController != null)
+            RotationTransition(
+              turns: Tween(begin: 0.0, end: 1.0).animate(_refreshIconController!),
+              child: IconButton(
+                icon: Icon(Icons.refresh, color: colorScheme.primary),
+                onPressed: _loadPosts,
+                tooltip: 'Refresh',
+              ),
+            ),
+        ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Loading posts...',
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            )
           : _posts.isEmpty
               ? _buildEmptyState()
               : RefreshIndicator(
                   onRefresh: _loadPosts,
+                  color: colorScheme.primary,
                   child: ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.only(top: 8, bottom: 80),
                     itemCount: _posts.length,
                     itemBuilder: (context, index) => _buildPostCard(_posts[index]),
                   ),
                 ),
       floatingActionButton: FloatingActionButton(
         onPressed: _navigateToCreatePost,
+        backgroundColor: colorScheme.primary,
+        foregroundColor: colorScheme.onPrimary,
+        elevation: 4,
         child: const Icon(Icons.add_photo_alternate),
         tooltip: 'Create Post',
       ),
@@ -165,26 +226,44 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
   }
   
   Widget _buildEmptyState() {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme colorScheme = theme.colorScheme;
+    
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.photo_album, size: 80, color: Colors.grey),
-          const SizedBox(height: 16),
-          Text(
-            'No posts yet',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Be the first to share a post!',
-            style: TextStyle(color: Colors.grey),
+          Icon(
+            Icons.photo_album,
+            size: 80,
+            color: colorScheme.onSurfaceVariant.withOpacity(0.5),
           ),
           const SizedBox(height: 24),
+          Text(
+            'No posts yet',
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Be the first to share a post!',
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 32),
           ElevatedButton.icon(
             onPressed: _navigateToCreatePost,
             icon: const Icon(Icons.add_photo_alternate),
             label: const Text('CREATE POST'),
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
           ),
         ],
       ),
@@ -192,6 +271,9 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
   }
   
   Widget _buildPostCard(Post post) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme colorScheme = theme.colorScheme;
+    
     return FutureBuilder<String?>(
       future: _getProfileImagePath(post.username),
       builder: (context, snapshot) {
@@ -199,77 +281,170 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
         
         return Card(
           margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(
+              color: colorScheme.outlineVariant.withOpacity(0.2),
+              width: 1,
+            ),
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Post header with user info
-              ListTile(
-                leading: CircleAvatar(
-                  backgroundImage: profileImagePath != null
-                      ? FileImage(File(profileImagePath))
-                      : null,
-                  child: profileImagePath == null
-                      ? const Icon(Icons.person)
-                      : null,
-                ),
-                title: Text(post.username),
-                subtitle: Text(DateFormat('MMM d, y • h:mm a').format(post.timestamp)),
-                trailing: post.username == widget.username
-                    ? PopupMenuButton<String>(
-                        onSelected: (value) {
-                          if (value == 'delete') {
-                            _deletePost(post);
-                          }
-                        },
-                        itemBuilder: (BuildContext context) => [
-                          const PopupMenuItem(
-                            value: 'delete',
-                            child: Text('Delete'),
+              Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 24,
+                      backgroundColor: colorScheme.primaryContainer,
+                      backgroundImage: profileImagePath != null
+                          ? FileImage(File(profileImagePath))
+                          : null,
+                      child: profileImagePath == null
+                          ? Icon(Icons.person, color: colorScheme.onPrimaryContainer)
+                          : null,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            post.username,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            DateFormat('MMM d, y • h:mm a').format(post.timestamp),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
                           ),
                         ],
-                      )
-                    : null,
-              ),
-              
-              // Post media (image or video)
-              if (post.mediaUrls.isNotEmpty)
-                _MediaGridWidget(
-                  mediaUrls: post.mediaUrls,
-                  isVideo: post.isVideo,
+                      ),
+                    ),
+                    if (post.username == widget.username)
+                      IconButton(
+                        icon: Icon(
+                          Icons.more_vert,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        onPressed: () {
+                          showModalBottomSheet(
+                            context: context,
+                            shape: const RoundedRectangleBorder(
+                              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                            ),
+                            builder: (context) => SafeArea(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  ListTile(
+                                    leading: const Icon(Icons.delete_outline),
+                                    title: const Text('Delete post'),
+                                    onTap: () {
+                                      Navigator.pop(context);
+                                      _deletePost(post);
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                  ],
                 ),
-              
-              // Post caption
+              ),
+              if (post.mediaUrls.isNotEmpty)
+                ClipRRect(
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(4),
+                    topRight: Radius.circular(4),
+                  ),
+                  child: _MediaGridWidget(
+                    mediaUrls: post.mediaUrls,
+                    isVideo: post.isVideo,
+                  ),
+                ),
               if (post.caption.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.all(16.0),
-                  child: Text(post.caption),
+                  child: Text(
+                    post.caption,
+                    style: theme.textTheme.bodyLarge,
+                  ),
                 ),
-              
-              // Divider
-              const Divider(height: 0),
-              
-              // Like and comment buttons
-              Row(
-                children: [
-                  // Like button
-                  IconButton(
-                    icon: Icon(
-                      post.isLikedBy(widget.username) ? Icons.favorite : Icons.favorite_border,
-                      color: post.isLikedBy(widget.username) ? Colors.red : null,
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                child: Row(
+                  children: [
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(24),
+                        onTap: () => _toggleLike(post),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          child: Row(
+                            children: [
+                              Icon(
+                                post.isLikedBy(widget.username)
+                                    ? Icons.favorite
+                                    : Icons.favorite_border,
+                                color: post.isLikedBy(widget.username)
+                                    ? Colors.red
+                                    : colorScheme.onSurfaceVariant,
+                                size: 22,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                '${post.likesCount}',
+                                style: theme.textTheme.labelLarge?.copyWith(
+                                  color: post.isLikedBy(widget.username)
+                                      ? Colors.red
+                                      : colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
-                    onPressed: () => _toggleLike(post),
-                  ),
-                  Text('${post.likesCount}'),
-                  const SizedBox(width: 16),
-                  
-                  // Comment button
-                  IconButton(
-                    icon: const Icon(Icons.comment_outlined),
-                    onPressed: () => _showCommentsDialog(post),
-                  ),
-                  const Text('Comments'),
-                ],
+                    const SizedBox(width: 8),
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(24),
+                        onTap: () => _showCommentsDialog(post),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.chat_bubble_outline,
+                                color: colorScheme.onSurfaceVariant,
+                                size: 22,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Comments',
+                                style: theme.textTheme.labelLarge?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(height: 8),
             ],
           ),
         );
@@ -346,7 +521,7 @@ class _CommentsSheetState extends State<_CommentsSheet> {
     try {
       final success = await PostService.deleteComment(comment.id);
       if (success) {
-        widget.onCommentAdded(); // Refresh comments
+        widget.onCommentAdded();
       }
     } catch (e) {
       print('Error deleting comment: $e');
@@ -360,38 +535,39 @@ class _CommentsSheetState extends State<_CommentsSheet> {
   
   @override
   Widget build(BuildContext context) {
-    // Calculate the height to take up to 80% of the screen
     final double screenHeight = MediaQuery.of(context).size.height;
     final maxHeight = screenHeight * 0.8;
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme colorScheme = theme.colorScheme;
     
     return Container(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
       constraints: BoxConstraints(maxHeight: maxHeight),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Handle
           Container(
             width: 40,
             height: 5,
-            margin: const EdgeInsets.symmetric(vertical: 8),
+            margin: const EdgeInsets.symmetric(vertical: 12),
             decoration: BoxDecoration(
               color: Colors.grey[300],
               borderRadius: BorderRadius.circular(2.5),
             ),
           ),
-          
-          // Title
           Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
             child: Row(
               children: [
-                const Text(
+                Text(
                   'Comments',
-                  style: TextStyle(
-                    fontSize: 18,
+                  style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -399,68 +575,161 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                 IconButton(
                   icon: const Icon(Icons.close),
                   onPressed: () => Navigator.pop(context),
+                  visualDensity: VisualDensity.compact,
                 ),
               ],
             ),
           ),
-          
-          const Divider(height: 0),
-          
-          // Comments list
+          const Divider(height: 1),
           Expanded(
             child: widget.comments.isEmpty
-                ? const Center(child: Text('No comments yet'))
-                : ListView.builder(
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.chat_bubble_outline,
+                          size: 56,
+                          color: colorScheme.onSurfaceVariant.withOpacity(0.3),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No comments yet',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Be the first to comment on this post',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.onSurfaceVariant.withOpacity(0.7),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.separated(
                     itemCount: widget.comments.length,
+                    separatorBuilder: (context, index) => const Divider(height: 1, indent: 72),
                     itemBuilder: (context, index) {
                       final comment = widget.comments[index];
-                      return ListTile(
-                        leading: const CircleAvatar(
-                          child: Icon(Icons.person, size: 20),
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: colorScheme.primaryContainer,
+                            child: Icon(Icons.person, color: colorScheme.onPrimaryContainer, size: 20),
+                          ),
+                          title: Row(
+                            children: [
+                              Text(
+                                comment.username,
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                timeAgo(comment.timestamp),
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                          subtitle: Padding(
+                            padding: const EdgeInsets.only(top: 4.0),
+                            child: Text(comment.text),
+                          ),
+                          trailing: comment.username == widget.currentUsername
+                              ? IconButton(
+                                  icon: Icon(
+                                    Icons.delete_outline,
+                                    size: 20,
+                                    color: colorScheme.error,
+                                  ),
+                                  onPressed: () => _deleteComment(comment),
+                                )
+                              : null,
                         ),
-                        title: Text(
-                          comment.username,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        subtitle: Text(comment.text),
-                        trailing: comment.username == widget.currentUsername
-                            ? IconButton(
-                                icon: const Icon(Icons.delete, size: 20),
-                                onPressed: () => _deleteComment(comment),
-                              )
-                            : null,
                       );
                     },
                   ),
           ),
-          
-          // Comment input
+          const Divider(height: 1),
           Padding(
-            padding: const EdgeInsets.all(8.0),
+            padding: const EdgeInsets.all(16.0),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                const CircleAvatar(
-                  child: Icon(Icons.person, size: 20),
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor: colorScheme.primaryContainer,
+                  child: Icon(Icons.person, color: colorScheme.onPrimaryContainer, size: 20),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 12),
                 Expanded(
                   child: TextField(
                     controller: _commentController,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: 'Add a comment...',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      hintStyle: TextStyle(color: colorScheme.onSurfaceVariant),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: BorderSide(
+                          color: colorScheme.outline,
+                          width: 1,
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: BorderSide(
+                          color: colorScheme.outline.withOpacity(0.5),
+                          width: 1,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: BorderSide(
+                          color: colorScheme.primary,
+                          width: 2,
+                        ),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      isDense: true,
                     ),
                     maxLines: 3,
                     minLines: 1,
+                    style: theme.textTheme.bodyMedium,
+                    textCapitalization: TextCapitalization.sentences,
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 12),
                 _isSubmitting
-                    ? const CircularProgressIndicator()
-                    : IconButton(
-                        icon: const Icon(Icons.send),
-                        onPressed: _addComment,
+                    ? SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
+                        ),
+                      )
+                    : Material(
+                        color: colorScheme.primary,
+                        shape: const CircleBorder(),
+                        child: InkWell(
+                          onTap: _addComment,
+                          customBorder: const CircleBorder(),
+                          child: Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Icon(
+                              Icons.send,
+                              color: colorScheme.onPrimary,
+                              size: 20,
+                            ),
+                          ),
+                        ),
                       ),
               ],
             ),
@@ -468,6 +737,24 @@ class _CommentsSheetState extends State<_CommentsSheet> {
         ],
       ),
     );
+  }
+  
+  String timeAgo(DateTime dateTime) {
+    final difference = DateTime.now().difference(dateTime);
+    
+    if (difference.inDays > 8) {
+      return DateFormat('MMM d').format(dateTime);
+    } else if (difference.inDays > 1) {
+      return '${difference.inDays} days ago';
+    } else if (difference.inDays == 1) {
+      return 'Yesterday';
+    } else if (difference.inHours >= 1) {
+      return '${difference.inHours} hours ago';
+    } else if (difference.inMinutes >= 1) {
+      return '${difference.inMinutes} minutes ago';
+    } else {
+      return 'Just now';
+    }
   }
 }
 
@@ -547,7 +834,6 @@ class _MediaGridWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // For a single media item
     if (mediaUrls.length == 1) {
       return GestureDetector(
         onTap: () => _openMediaViewer(context, 0),
@@ -562,12 +848,9 @@ class _MediaGridWidget extends StatelessWidget {
       );
     }
 
-    // For multiple media items
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
-        
-        // Show up to 4 items initially
         final visibleCount = mediaUrls.length > 4 ? 4 : mediaUrls.length;
         final hasMore = mediaUrls.length > 4;
         
@@ -656,7 +939,7 @@ class _MediaGridWidget extends StatelessWidget {
               ),
             );
           default:
-            return const SizedBox(); // Should not happen
+            return const SizedBox();
         }
       },
     );
@@ -677,14 +960,12 @@ class _MediaGridWidget extends StatelessWidget {
           ? Stack(
               alignment: Alignment.center,
               children: [
-                // Video thumbnail
                 Container(
                   width: width,
                   height: height,
                   color: Colors.black,
                   child: const Center(child: Icon(Icons.play_circle_filled, color: Colors.white, size: 50)),
                 ),
-                // Play indicator
                 Container(
                   width: 50,
                   height: 50,
@@ -719,58 +1000,6 @@ class _MediaGridWidget extends StatelessWidget {
   }
 }
 
-class _VideoThumbnail extends StatelessWidget {
-  final String videoPath;
-  final double width;
-  final double height;
-  
-  const _VideoThumbnail({
-    required this.videoPath,
-    required this.width,
-    required this.height,
-  });
-  
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        // Video thumbnail (could be extracted from the video, but using a placeholder here)
-        Container(
-          width: width,
-          height: height,
-          color: Colors.black,
-          child: const Center(child: Icon(Icons.play_circle_filled, color: Colors.white, size: 50)),
-        ),
-        // Play button
-        GestureDetector(
-          onTap: () {
-            // Show the full video player when tapped
-            showDialog(
-              context: context,
-              builder: (context) => Dialog(
-                insetPadding: const EdgeInsets.all(0),
-                backgroundColor: Colors.black,
-                child: _VideoPlayerWidget(videoPath: videoPath),
-              ),
-            );
-          },
-          child: Container(
-            width: 50,
-            height: 50,
-            decoration: const BoxDecoration(
-              color: Colors.black38,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.play_arrow, color: Colors.white, size: 30),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// Add this new widget for the media viewer modal
 class _MediaViewerModal extends StatefulWidget {
   final List<String> mediaUrls;
   final bool isVideo;
@@ -807,43 +1036,105 @@ class _MediaViewerModalState extends State<_MediaViewerModal> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        backgroundColor: Colors.black,
-        iconTheme: const IconThemeData(color: Colors.white),
+        backgroundColor: Colors.black.withOpacity(0.5),
+        elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.close),
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
           '${_currentIndex + 1}/${widget.mediaUrls.length}',
-          style: const TextStyle(color: Colors.white),
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.close, color: Colors.white),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ],
       ),
-      body: PageView.builder(
-        controller: _pageController,
-        itemCount: widget.mediaUrls.length,
-        onPageChanged: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        itemBuilder: (context, index) {
-          final mediaPath = widget.mediaUrls[index];
-          final isVideoItem = widget.isVideo || mediaPath.toLowerCase().endsWith('.mp4');
+      body: Stack(
+        children: [
+          // Media content
+          PageView.builder(
+            controller: _pageController,
+            itemCount: widget.mediaUrls.length,
+            onPageChanged: (index) {
+              setState(() {
+                _currentIndex = index;
+              });
+            },
+            itemBuilder: (context, index) {
+              final mediaPath = widget.mediaUrls[index];
+              final isVideoItem = widget.isVideo || mediaPath.toLowerCase().endsWith('.mp4');
+              
+              return isVideoItem
+                ? _VideoPlayerWidget(videoPath: mediaPath)
+                : Center(
+                    child: GestureDetector(
+                      onTap: () {
+                        // Tap to exit
+                      },
+                      child: InteractiveViewer(
+                        minScale: 0.5,
+                        maxScale: 4.0,
+                        child: Image.file(
+                          File(mediaPath),
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.broken_image,
+                                    color: Colors.white70,
+                                    size: 64,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'Failed to load image',
+                                    style: const TextStyle(color: Colors.white70),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  );
+            },
+          ),
           
-          return isVideoItem
-            ? _VideoPlayerWidget(videoPath: mediaPath)
-            : Center(
-                child: InteractiveViewer(
-                  minScale: 0.5,
-                  maxScale: 4.0,
-                  child: Image.file(
-                    File(mediaPath),
-                    fit: BoxFit.contain,
+          // Page indicator
+          if (widget.mediaUrls.length > 1)
+            Positioned(
+              bottom: 24,
+              left: 0,
+              right: 0,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(
+                  widget.mediaUrls.length,
+                  (index) => Container(
+                    width: 8,
+                    height: 8,
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: _currentIndex == index
+                          ? Colors.white
+                          : Colors.white.withOpacity(0.4),
+                    ),
                   ),
                 ),
-              );
-        },
+              ),
+            ),
+        ],
       ),
     );
   }

@@ -32,24 +32,39 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  List<Trail> trails = []; // Initialize with empty list
-  List<Trail> filteredTrails = []; // For filtered trails
-  List<ForumPost> _recentForumPosts = [];
-  bool _isLoadingForum = true;
-  int _selectedIndex = 0;
-  String _selectedDifficulty = 'All'; // Default filter
+  // Trail data
+  List<Trail> trails = [];
+  List<Trail> filteredTrails = [];
+  String selectedDifficulty = 'All';
+  
+  // Forum data
+  List<ForumPost> recentForumPosts = [];
+  bool isLoadingForum = true;
+  
+  // Navigation
+  int selectedIndex = 0;
   
   @override
   void initState() {
     super.initState();
-    trails = TrailsData.getTrails(); // Load the data
-    filteredTrails = trails; // Initially show all trails
-    _loadRecentForumPosts(); // Load recent forum posts
+    _initializeData();
+  }
+
+  /// Initializes all data sources needed for this screen
+  Future<void> _initializeData() async {
+    // Load trail data
+    setState(() {
+      trails = TrailsData.getTrails();
+      filteredTrails = trails;
+    });
+    
+    // Load forum data
+    await _loadRecentForumPosts();
   }
 
   void _filterTrailsByDifficulty(String difficulty) {
     setState(() {
-      _selectedDifficulty = difficulty;
+      selectedDifficulty = difficulty;
       if (difficulty == 'All') {
         filteredTrails = trails;
       } else {
@@ -61,22 +76,67 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadRecentForumPosts() async {
     setState(() {
-      _isLoadingForum = true;
+      isLoadingForum = true;
     });
     
     try {
       final posts = await ForumService.getAllPosts();
       setState(() {
         // Get the 5 most recent posts
-        _recentForumPosts = posts.take(5).toList();
-        _isLoadingForum = false;
+        recentForumPosts = posts.take(5).toList();
+        isLoadingForum = false;
       });
     } catch (e) {
       print('Error loading forum posts: $e');
       setState(() {
-        _isLoadingForum = false;
+        isLoadingForum = false;
       });
     }
+  }
+
+  // Add search functionality
+  void _showSearchFilter() {
+    // TODO: Implement search and filter functionality
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Search & Filter', style: TextStyle(color: textColor)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              decoration: InputDecoration(
+                hintText: 'Search trails...',
+                prefixIcon: Icon(Icons.search, color: primaryColor),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: primaryColor, width: 2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text('More filters coming soon...', style: TextStyle(color: Colors.grey[600])),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryColor,
+              foregroundColor: Colors.white,
+            ),
+            child: Text('Apply'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _navigateToForum() {
@@ -116,7 +176,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildDifficultyTab(String difficulty) {
-    final isSelected = _selectedDifficulty == difficulty;
+    final isSelected = selectedDifficulty == difficulty;
     return GestureDetector(
       onTap: () => _filterTrailsByDifficulty(difficulty),
       child: Container(
@@ -212,9 +272,9 @@ class _HomeScreenState extends State<HomeScreen> {
           
           SizedBox(
             height: 180,
-            child: _isLoadingForum
+            child: isLoadingForum
               ? const Center(child: CircularProgressIndicator(color: primaryColor))
-              : _recentForumPosts.isEmpty
+              : recentForumPosts.isEmpty
                   ? EmptyForumState(
                       onCreatePost: () {
                         Navigator.push(
@@ -227,10 +287,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   : ListView.builder(
                       scrollDirection: Axis.horizontal,
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      itemCount: _recentForumPosts.length,
+                      itemCount: recentForumPosts.length,
                       itemBuilder: (context, index) => ForumPostCard(
-                        post: _recentForumPosts[index],
-                        onTap: () => _openForumPost(_recentForumPosts[index]),
+                        post: recentForumPosts[index],
+                        onTap: () => _openForumPost(recentForumPosts[index]),
                         isCompact: true,
                       ),
                     ),
@@ -241,38 +301,38 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onItemTapped(int index) {
-    if (index == _selectedIndex) return;
+    if (index == selectedIndex) return;
     
     // Navigate to different screens based on the selected tab
     switch (index) {
       case 0: // Home tab - stay on this screen
         setState(() {
-          _selectedIndex = 0;
+          selectedIndex = 0;
         });
         break;
       case 1: // Record tab
         Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => const RecordScreen()),
-        ).then((_) => setState(() => _selectedIndex = 0));
+        ).then((_) => setState(() => selectedIndex = 0));
         break;
       case 2: // History tab
         Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => const ActivityHistoryScreen()),
-        ).then((_) => setState(() => _selectedIndex = 0));
+        ).then((_) => setState(() => selectedIndex = 0));
         break;
       case 3: // Social Feed tab
         Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => SocialFeedScreen(username: widget.username)),
-        ).then((_) => setState(() => _selectedIndex = 0));
+        ).then((_) => setState(() => selectedIndex = 0));
         break;
       case 4: // Profile tab - Replace dialog with ProfileScreen
         Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => ProfileScreen(username: widget.username)),
-        ).then((_) => setState(() => _selectedIndex = 0));
+        ).then((_) => setState(() => selectedIndex = 0));
         break;
     }
   }
@@ -285,42 +345,19 @@ class _HomeScreenState extends State<HomeScreen> {
         elevation: 0,
         backgroundColor: Colors.white,
         foregroundColor: textColor,
-        title: RichText(
-          text: TextSpan(
-            children: [
-              TextSpan(
-                text: 'Hi, ',
-                style: TextStyle(
-                  fontSize: 20,
-                  color: textColor.withOpacity(0.7),
-                  fontWeight: FontWeight.normal,
-                ),
-              ),
-              TextSpan(
-                text: widget.username,
-                style: const TextStyle(
-                  fontSize: 20,
-                  color: textColor,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
+        title: const Text(
+          'Ascentra',
+          style: TextStyle(
+            fontSize: 22,
+            color: textColor,
+            fontWeight: FontWeight.bold,
           ),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.notifications_none, color: primaryColor),
-            onPressed: () {
-              // TODO: Add notification functionality
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout, color: accentColor),
-            onPressed: () {
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (context) => const LoginScreen()),
-              );
-            },
+            icon: const Icon(Icons.search, color: primaryColor),
+            tooltip: 'Search & Filter',
+            onPressed: _showSearchFilter,
           ),
         ],
       ),
@@ -364,7 +401,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           Icon(Icons.terrain, size: 64, color: Colors.grey[400]),
                           const SizedBox(height: 16),
                           Text(
-                            'No ${_selectedDifficulty != "All" ? _selectedDifficulty : ""} trails available',
+                            'No ${selectedDifficulty != "All" ? selectedDifficulty : ""} trails available',
                             style: TextStyle(color: Colors.grey[600]),
                           ),
                         ],
@@ -549,7 +586,7 @@ class _HomeScreenState extends State<HomeScreen> {
           backgroundColor: Colors.white,
           selectedItemColor: primaryColor,
           unselectedItemColor: Colors.grey,
-          currentIndex: _selectedIndex,
+          currentIndex: selectedIndex,
           onTap: _onItemTapped,
           elevation: 0,
           items: const [

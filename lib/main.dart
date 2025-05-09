@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
-import 'screens/login_screen.dart';
+import 'screens/onboarding_screen.dart';
 import 'services/database_helper.dart';
 
 void main() async {
@@ -32,10 +32,10 @@ class MyApp extends StatelessWidget {
       title: 'Ascentra App',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF4FC3A1)),
         useMaterial3: true,
       ),
-      home: const LoginScreen(),
+      home: const OnboardingScreen(),
     );
   }
 }

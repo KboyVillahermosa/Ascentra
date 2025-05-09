@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:math' as Math;
 import '../data/trails_data.dart';
 import '../models/trail.dart';
 import '../models/forum_post.dart';
@@ -391,8 +392,8 @@ class _HomeScreenState extends State<HomeScreen> {
               _buildDifficultyTabs(),
               
               // Trails list
-              SizedBox(
-                height: 340,
+              Container(
+                height: 420, // Increased height to accommodate new design
                 child: filteredTrails.isEmpty 
                   ? Center(
                       child: Column(
@@ -407,147 +408,260 @@ class _HomeScreenState extends State<HomeScreen> {
                         ],
                       ),
                     )
-                  : ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      itemCount: filteredTrails.length,
-                      itemBuilder: (context, index) {
-                        final trail = filteredTrails[index];
-                        return SizedBox(
-                          width: 280,
-                          child: Card(
-                            elevation: 2,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            clipBehavior: Clip.antiAlias,
-                            margin: const EdgeInsets.only(right: 16, bottom: 8, top: 8),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                // Image with difficulty badge
-                                Stack(
-                                  children: [
-                                    SizedBox(
-                                      height: 160,
-                                      width: double.infinity,
-                                      child: Image.asset(
-                                        trail.image,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (context, error, stackTrace) {
-                                          return Container(
-                                            color: Colors.grey[200],
-                                            child: Center(
-                                              child: Icon(Icons.terrain, size: 48, color: Colors.grey[400]),
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                    // Difficulty badge
-                                    Positioned(
-                                      top: 12,
-                                      left: 12,
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 6,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: trail.difficulty.toLowerCase() == 'easy'
-                                              ? primaryColor
-                                              : trail.difficulty.toLowerCase() == 'moderate'
-                                                  ? secondaryColor
-                                                  : accentColor,
-                                          borderRadius: BorderRadius.circular(20),
-                                        ),
-                                        child: Text(
-                                          trail.difficulty,
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Trail navigation indicator
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                          child: Row(
+                            children: [
+                              Text(
+                                'Featured Trails',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: textColor,
                                 ),
-                                
-                                // Card content
-                                Expanded(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(16.0),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          trail.name,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 18,
-                                            color: textColor,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Row(
-                                          children: [
-                                            const Icon(Icons.location_on, size: 16, color: primaryColor),
-                                            const SizedBox(width: 4),
-                                            Expanded(
-                                              child: Text(
-                                                trail.location,
-                                                style: TextStyle(color: textColor.withOpacity(0.7), fontSize: 14),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Row(
-                                          children: [
-                                            const Icon(Icons.height, size: 16, color: secondaryColor),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              '${trail.elevation}m',
-                                              style: TextStyle(color: textColor.withOpacity(0.7), fontSize: 14),
-                                            ),
-                                          ],
-                                        ),
-                                        const Spacer(),
-                                        SizedBox(
-                                          width: double.infinity,
-                                          child: ElevatedButton(
-                                            onPressed: () {
-                                              Navigator.push(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder: (context) => TrailDetailScreen(trail: trail),
-                                                ),
-                                              );
-                                            },
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: primaryColor,
-                                              foregroundColor: Colors.white,
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius: BorderRadius.circular(10),
-                                              ),
-                                              padding: const EdgeInsets.symmetric(vertical: 12),
-                                            ),
-                                            child: const Text('Explore'),
-                                          ),
+                              ),
+                              const Spacer(),
+                              const Text(
+                                'Swipe to explore',
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              const SizedBox(width: 5),
+                              Icon(Icons.swipe, size: 16, color: Colors.grey),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        
+                        // Immersive trail cards
+                        Expanded(
+                          child: PageView.builder(
+                            controller: PageController(viewportFraction: 0.85),
+                            itemCount: filteredTrails.length,
+                            itemBuilder: (context, index) {
+                              final trail = filteredTrails[index];
+                              return GestureDetector(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => TrailDetailScreen(trail: trail),
+                                    ),
+                                  );
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 10),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(24),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.2),
+                                          blurRadius: 10,
+                                          offset: const Offset(0, 4),
                                         ),
                                       ],
                                     ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(24),
+                                      child: Stack(
+                                        fit: StackFit.expand,
+                                        children: [
+                                          // Background image
+                                          Image.asset(
+                                            trail.image,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (context, error, stackTrace) {
+                                              return Container(
+                                                color: Colors.grey[200],
+                                                child: Icon(Icons.terrain, size: 64, color: Colors.grey[400]),
+                                              );
+                                            },
+                                          ),
+                                          
+                                          // Gradient overlay for readability
+                                          Container(
+                                            decoration: BoxDecoration(
+                                              gradient: LinearGradient(
+                                                begin: Alignment.topCenter,
+                                                end: Alignment.bottomCenter,
+                                                colors: [
+                                                  Colors.transparent,
+                                                  Colors.black.withOpacity(0.3),
+                                                  Colors.black.withOpacity(0.7),
+                                                ],
+                                                stops: const [0.4, 0.7, 1.0],
+                                              ),
+                                            ),
+                                          ),
+                                          
+                                          // Content overlay
+                                          Padding(
+                                            padding: const EdgeInsets.all(20),
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                // Difficulty badge
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                                  decoration: BoxDecoration(
+                                                    color: trail.difficulty.toLowerCase().contains('easy')
+                                                        ? primaryColor
+                                                        : trail.difficulty.toLowerCase().contains('moderate')
+                                                            ? secondaryColor
+                                                            : accentColor,
+                                                    borderRadius: BorderRadius.circular(20),
+                                                    boxShadow: [
+                                                      BoxShadow(
+                                                        color: Colors.black.withOpacity(0.2),
+                                                        blurRadius: 4,
+                                                        offset: const Offset(0, 2),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  child: Text(
+                                                    trail.difficulty,
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontWeight: FontWeight.bold,
+                                                      fontSize: 12,
+                                                      letterSpacing: 0.5,
+                                                    ),
+                                                  ),
+                                                ),
+                                                
+                                                const Spacer(),
+                                                
+                                                // Trail information at bottom
+                                                Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      trail.name,
+                                                      style: const TextStyle(
+                                                        fontWeight: FontWeight.bold,
+                                                        fontSize: 24,
+                                                        color: Colors.white,
+                                                        shadows: [
+                                                          Shadow(
+                                                            offset: Offset(0, 1),
+                                                            blurRadius: 3.0,
+                                                            color: Color.fromARGB(150, 0, 0, 0),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 8),
+                                                    
+                                                    // Trail details
+                                                    Row(
+                                                      children: [
+                                                        Icon(Icons.location_on, size: 16, color: Colors.white.withOpacity(0.9)),
+                                                        const SizedBox(width: 6),
+                                                        Expanded(
+                                                          child: Text(
+                                                            trail.location,
+                                                            style: TextStyle(
+                                                              color: Colors.white.withOpacity(0.9),
+                                                              fontSize: 14,
+                                                              fontWeight: FontWeight.w500,
+                                                            ),
+                                                            maxLines: 1,
+                                                            overflow: TextOverflow.ellipsis,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 6),
+                                                    Row(
+                                                      children: [
+                                                        Icon(Icons.height, size: 16, color: Colors.white.withOpacity(0.9)),
+                                                        const SizedBox(width: 6),
+                                                        Text(
+                                                          '${trail.elevation}m elevation',
+                                                          style: TextStyle(
+                                                            color: Colors.white.withOpacity(0.9),
+                                                            fontSize: 14,
+                                                            fontWeight: FontWeight.w500,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 16),
+                                                    
+                                                    // Call-to-action
+                                                    Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.white,
+                                                        borderRadius: BorderRadius.circular(30),
+                                                        boxShadow: [
+                                                          BoxShadow(
+                                                            color: Colors.black.withOpacity(0.1),
+                                                            blurRadius: 4,
+                                                            offset: const Offset(0, 2),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      child: Row(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        children: [
+                                                          Text(
+                                                            'Explore Now',
+                                                            style: TextStyle(
+                                                              color: primaryColor,
+                                                              fontWeight: FontWeight.bold,
+                                                              fontSize: 14,
+                                                            ),
+                                                          ),
+                                                          const SizedBox(width: 4),
+                                                          Icon(Icons.arrow_forward, size: 16, color: primaryColor),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ],
+                              );
+                            },
+                          ),
+                        ),
+                        
+                        // Page indicator
+                        Center(
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 10),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: List.generate(
+                                Math.min(filteredTrails.length, 5),
+                                (index) => Container(
+                                  width: 8,
+                                  height: 8,
+                                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: index == 0 ? primaryColor : Colors.grey.withOpacity(0.3),
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
-                        );
-                      },
+                        ),
+                      ],
                     ),
               ),
               

@@ -32,6 +32,7 @@ image_picker: Camera and gallery integration
 🚀 Installation
 Clone the repository:
 git clone https://github.com/yourusername/ascentra.git
+
 cd ascentra
 
 flutter pub get

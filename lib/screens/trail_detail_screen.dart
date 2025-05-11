@@ -280,16 +280,7 @@ class _TrailDetailScreenState extends State<TrailDetailScreen> {
             pinned: true,
             backgroundColor: Colors.transparent,
             flexibleSpace: FlexibleSpaceBar(
-              title: Padding(
-                padding: const EdgeInsets.only(left: 8, right: 40),
-                child: Text(
-                  widget.trail.name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    shadows: [Shadow(color: Colors.black45, blurRadius: 8)],
-                  ),
-                ),
-              ),
+              // Removed the title property to get rid of the text in the header
               background: Stack(
                 fit: StackFit.expand,
                 children: [
@@ -315,6 +306,20 @@ class _TrailDetailScreenState extends State<TrailDetailScreen> {
                     ),
                   ),
                 ],
+              ),
+            ),
+          ),
+
+          // Add trail name as the first widget in the main content
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+              child: Text(
+                widget.trail.name,
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ),

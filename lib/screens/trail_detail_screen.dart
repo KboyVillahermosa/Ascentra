@@ -1,30 +1,74 @@
 import 'package:flutter/material.dart';
 import '../models/trail.dart';
+import '../services/trail_service.dart';  // Add this import
 import 'package:url_launcher/url_launcher.dart';
+import 'package:uuid/uuid.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 class TrailDetailScreen extends StatefulWidget {
   final Trail trail;
+  final Function(Trail updatedTrail)? onTrailUpdated;
 
-  const TrailDetailScreen({super.key, required this.trail});
+  const TrailDetailScreen({
+    super.key, 
+    required this.trail, 
+    this.onTrailUpdated,
+  });
 
   @override
   State<TrailDetailScreen> createState() => _TrailDetailScreenState();
 }
 
 class _TrailDetailScreenState extends State<TrailDetailScreen> {
+  double _userRating = 0;
+  final TextEditingController _commentController = TextEditingController();
+  final TextEditingController _usernameController = TextEditingController();
+  bool _isSubmitting = false;
+  List<Review> _reviews = [];
+
   @override
   void initState() {
     super.initState();
-    // Pre-check URL launcher capability to identify issues early
+    _userRating = widget.trail.rating ?? 0;
+    
+    // Load reviews from the database
+    _loadReviews();
+    
     _checkUrlLauncherCapability();
+  }
+
+  Future<void> _loadReviews() async {
+    final reviewsKey = 'trail_reviews_${widget.trail.id}';
+    final prefs = await SharedPreferences.getInstance();
+    final List<String>? reviewStrings = prefs.getStringList(reviewsKey);
+    
+    if (reviewStrings != null && reviewStrings.isNotEmpty) {
+      setState(() {
+        _reviews = reviewStrings
+            .map((str) => Review.fromJson(jsonDecode(str)))
+            .toList();
+      });
+    } else if (widget.trail.reviews != null) {
+      setState(() {
+        _reviews = widget.trail.reviews!.toList();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    _usernameController.dispose();
+    super.dispose();
   }
 
   Future<void> _checkUrlLauncherCapability() async {
     final testUri = Uri.parse('https://www.google.com');
     final canLaunch = await canLaunchUrl(testUri);
-    
+
     print('URL launcher capability check: ${canLaunch ? 'PASSED' : 'FAILED'}');
-    
+
     if (!canLaunch) {
       print('WARNING: Basic URL launching capability is not available');
     }
@@ -38,26 +82,19 @@ class _TrailDetailScreenState extends State<TrailDetailScreen> {
         );
         return;
       }
-      
+
       final lat = widget.trail.latitude!;
       final lng = widget.trail.longitude!;
-      
-      // Try multiple map URL formats for maximum compatibility
+
       List<Uri> mapUris = [
-        // Format 1: Web URL (works on most browsers)
         Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng'),
-        
-        // Format 2: Native geo URI (works on many map apps)
         Uri.parse('geo:$lat,$lng'),
-        
-        // Format 3: Direct Google Maps app URL for Android
         Uri.parse('google.navigation:q=$lat,$lng'),
       ];
-      
+
       bool launched = false;
       Exception? lastError;
-      
-      // Try each URI format until one works
+
       for (var uri in mapUris) {
         try {
           print('Trying to launch: $uri');
@@ -72,11 +109,10 @@ class _TrailDetailScreenState extends State<TrailDetailScreen> {
           print('Failed to launch $uri: $e');
         }
       }
-      
+
       if (!launched) {
-        // Fallback: Open in browser
         final webUri = Uri.parse('https://maps.google.com?q=$lat,$lng');
-        
+
         print('Trying fallback URL: $webUri');
         if (await canLaunchUrl(webUri)) {
           await launchUrl(webUri);
@@ -85,7 +121,7 @@ class _TrailDetailScreenState extends State<TrailDetailScreen> {
           throw lastError ?? Exception('Could not launch any map URL');
         }
       }
-      
+
       if (!launched && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -93,8 +129,7 @@ class _TrailDetailScreenState extends State<TrailDetailScreen> {
             duration: Duration(seconds: 4),
           ),
         );
-        
-        // Add clipboard functionality
+
         _showCoordinatesCopyDialog(lat, lng);
       }
     } catch (e) {
@@ -110,7 +145,6 @@ class _TrailDetailScreenState extends State<TrailDetailScreen> {
     }
   }
 
-  // Add this method to show a dialog with coordinates
   void _showCoordinatesCopyDialog(double lat, double lng) {
     showDialog(
       context: context,
@@ -135,8 +169,180 @@ class _TrailDetailScreenState extends State<TrailDetailScreen> {
     );
   }
 
+  void _updateRating(double rating) {
+    setState(() {
+      _userRating = rating;
+    });
+  }
+
+  void _submitRating() {
+    String username = _usernameController.text.trim();
+    if (username.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter your name')),
+      );
+      return;
+    }
+
+    if (_userRating == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a rating')),
+      );
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    final newReview = Review(
+      id: const Uuid().v4(),
+      userId: 'user-${DateTime.now().millisecondsSinceEpoch}',
+      userName: username,
+      rating: _userRating,
+      comment: _commentController.text.trim(),
+      date: DateTime.now(),
+    );
+
+    // Save to database
+    _saveReviewToDatabase(newReview).then((_) {
+      setState(() {
+        _reviews.add(newReview);
+        _isSubmitting = false;
+        _commentController.clear();
+      });
+
+      // Update the trail's overall rating
+      _updateTrailRating();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Thank you $username for rating this trail ${_userRating.toStringAsFixed(1)} stars!'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }).catchError((error) {
+      setState(() {
+        _isSubmitting = false;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to save review: $error'),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    });
+  }
+
+  Future<void> _saveReviewToDatabase(Review review) async {
+    final success = await TrailService.addReview(widget.trail.id, review);
+    if (!success) {
+      throw Exception('Failed to save review to database');
+    }
+  }
+
+  void _updateTrailRating() {
+    if (_reviews.isEmpty) return;
+    
+    double sum = _reviews.fold(0, (sum, review) => sum + review.rating);
+    double average = sum / _reviews.length;
+    
+    // Update the trail with new rating
+    final updatedTrail = widget.trail.copyWith(rating: average);
+    
+    // Call the callback if provided
+    if (widget.onTrailUpdated != null) {
+      widget.onTrailUpdated!(updatedTrail);
+    }
+    
+    // Save the updated trail to the database
+    TrailService.updateTrailRating(widget.trail.id);
+  }
+
+  Widget _buildRatingBar() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(5, (index) {
+        return IconButton(
+          icon: Icon(
+            index < _userRating.floor()
+                ? Icons.star
+                : (index < _userRating ? Icons.star_half : Icons.star_border),
+            color: Colors.amber,
+            size: 30,
+          ),
+          onPressed: () => _updateRating(index + 1.0),
+          splashRadius: 24,
+        );
+      }),
+    );
+  }
+
+  Widget _buildReviewItem(Review review) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CircleAvatar(
+                  backgroundColor: Colors.purple.shade100,
+                  child: Text(
+                    review.userName[0],
+                    style: TextStyle(color: Colors.purple.shade800),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        review.userName,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: List.generate(5, (index) {
+                          return Icon(
+                            index < review.rating ? Icons.star : Icons.star_border,
+                            color: Colors.amber,
+                            size: 16,
+                          );
+                        }),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(review.comment),
+                    ],
+                  ),
+                ),
+                Text(
+                  '${review.date.day}/${review.date.month}/${review.date.year}',
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    double overallRating = 0;
+    if (_reviews.isNotEmpty) {
+      double sum = _reviews.fold(0, (sum, review) => sum + review.rating);
+      overallRating = sum / _reviews.length;
+    } else {
+      overallRating = widget.trail.rating ?? 0;
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.trail.name),
@@ -146,7 +352,6 @@ class _TrailDetailScreenState extends State<TrailDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Hero image at the top
             Image.asset(
               widget.trail.image,
               height: 250,
@@ -160,35 +365,50 @@ class _TrailDetailScreenState extends State<TrailDetailScreen> {
                 );
               },
             ),
-            
-            // Map section
             widget.trail.latitude != null && widget.trail.longitude != null
-              ? Image.network(
-                  'https://maps.geoapify.com/v1/staticmap?style=osm-carto&width=600&height=400&center=lonlat:${widget.trail.longitude},${widget.trail.latitude}&zoom=14&apiKey=1301ee17de954a66be3b50e8ead73e2c',
-                  height: 250,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  loadingBuilder: (context, child, loadingProgress) {
-                    if (loadingProgress == null) return child;
-                    return Container(
-                      height: 250,
-                      color: Colors.grey[200],
-                      child: const Center(child: CircularProgressIndicator()),
-                    );
-                  },
-                  errorBuilder: (context, error, stackTrace) {
-                    print("Map error details: $error");
-                    return _buildLocationCard();
-                  },
-                )
-              : _buildLocationCard(),
-            
+                ? Image.network(
+                    'https://maps.geoapify.com/v1/staticmap?style=osm-carto&width=600&height=400&center=lonlat:${widget.trail.longitude},${widget.trail.latitude}&zoom=14&apiKey=1301ee17de954a66be3b50e8ead73e2c',
+                    height: 250,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return Container(
+                        height: 250,
+                        color: Colors.grey[200],
+                        child: const Center(child: CircularProgressIndicator()),
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) {
+                      print("Map error details: $error");
+                      return _buildLocationCard();
+                    },
+                  )
+                : _buildLocationCard(),
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Location
+                  Row(
+                    children: [
+                      const Icon(Icons.star_rate_rounded, color: Colors.amber, size: 28),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${overallRating.toStringAsFixed(1)} / 5.0',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '(${_reviews.length} reviews)',
+                        style: TextStyle(color: Colors.grey.shade600),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
                   Row(
                     children: [
                       const Icon(Icons.location_on, color: Colors.red),
@@ -203,38 +423,27 @@ class _TrailDetailScreenState extends State<TrailDetailScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  
-                  // Elevation
                   _buildInfoRow(
                     icon: Icons.trending_up,
                     title: 'Elevation',
                     value: '${widget.trail.elevation} meters above sea level',
                   ),
-                  
-                  // Difficulty
                   _buildInfoRow(
                     icon: Icons.warning_amber_rounded,
                     title: 'Trail Difficulty',
                     value: widget.trail.difficulty,
                   ),
-                  
-                  // Best time
                   _buildInfoRow(
                     icon: Icons.calendar_today,
                     title: 'Best Time to Hike',
                     value: widget.trail.bestTime,
                   ),
-                  
-                  // Necessities
                   _buildInfoRow(
                     icon: Icons.backpack,
                     title: 'Basic Necessities',
                     value: widget.trail.necessities,
                   ),
-                  
                   const SizedBox(height: 16),
-                  
-                  // Description
                   const Text(
                     'Description',
                     style: TextStyle(
@@ -248,10 +457,93 @@ class _TrailDetailScreenState extends State<TrailDetailScreen> {
                     style: const TextStyle(fontSize: 16),
                     textAlign: TextAlign.justify,
                   ),
-                  
                   const SizedBox(height: 24),
-                  
-                  // Button to open in Google Maps
+                  Card(
+                    elevation: 3,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          const Text(
+                            "Rate & Review This Trail",
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          _buildRatingBar(),
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: _usernameController,
+                            decoration: const InputDecoration(
+                              hintText: "Your name",
+                              labelText: "Name",
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: _commentController,
+                            maxLines: 3,
+                            decoration: const InputDecoration(
+                              hintText: "Share your experience with this trail...",
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: _isSubmitting ? null : _submitRating,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                              child: _isSubmitting
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Text('Submit Review'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  if (_reviews.isNotEmpty) ...[
+                    const Text(
+                      'User Reviews',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ..._reviews.map((review) => _buildReviewItem(review)).toList(),
+                  ] else ...[
+                    const Center(
+                      child: Text(
+                        'No reviews yet. Be the first to review!',
+                        style: TextStyle(
+                          fontStyle: FontStyle.italic,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 24),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
@@ -271,7 +563,7 @@ class _TrailDetailScreenState extends State<TrailDetailScreen> {
       ),
     );
   }
-  
+
   Widget _buildInfoRow({
     required IconData icon,
     required String title,
@@ -351,7 +643,9 @@ class _TrailDetailScreenState extends State<TrailDetailScreen> {
               const Icon(Icons.gps_fixed, color: Colors.white),
               const SizedBox(width: 8),
               Text(
-                "Coordinates: ${widget.trail.latitude.toStringAsFixed(4)}, ${widget.trail.longitude.toStringAsFixed(4)}",
+                widget.trail.latitude != null && widget.trail.longitude != null
+                    ? "Coordinates: ${widget.trail.latitude!.toStringAsFixed(4)}, ${widget.trail.longitude!.toStringAsFixed(4)}"
+                    : "Coordinates not available",
                 style: const TextStyle(color: Colors.white, fontSize: 16),
               ),
             ],

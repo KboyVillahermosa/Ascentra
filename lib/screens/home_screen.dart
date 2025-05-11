@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as Math;
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../data/trails_data.dart';
 import '../models/trail.dart';
 import '../models/forum_post.dart';
@@ -53,14 +55,52 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// Initializes all data sources needed for this screen
   Future<void> _initializeData() async {
-    // Load trail data
-    setState(() {
-      trails = TrailsData.getTrails();
-      filteredTrails = trails;
-    });
+    // Load trail data with persisted reviews
+    await _loadTrailsWithReviews();
     
     // Load forum data
     await _loadRecentForumPosts();
+  }
+
+  Future<void> _loadTrailsWithReviews() async {
+    // First get the base trail data
+    List<Trail> baseTrails = TrailsData.getTrails();
+    List<Trail> updatedTrails = [];
+    
+    // Get SharedPreferences instance
+    final prefs = await SharedPreferences.getInstance();
+    
+    // For each trail, check if it has reviews and update its rating
+    for (var trail in baseTrails) {
+      final reviewsKey = 'trail_reviews_${trail.id}';
+      final List<String>? reviewStrings = prefs.getStringList(reviewsKey);
+      
+      if (reviewStrings != null && reviewStrings.isNotEmpty) {
+        // Convert the stored review strings to Review objects
+        final reviews = reviewStrings
+            .map((str) => Review.fromJson(jsonDecode(str)))
+            .toList();
+        
+        // Calculate the average rating
+        double sum = reviews.fold(0, (sum, review) => sum + review.rating);
+        double average = sum / reviews.length;
+        
+        // Create updated trail with reviews and rating
+        updatedTrails.add(trail.copyWith(
+          rating: average,
+          reviews: reviews,
+        ));
+      } else {
+        // No reviews, just add the original trail
+        updatedTrails.add(trail);
+      }
+    }
+    
+    // Update the state with the loaded trails
+    setState(() {
+      trails = updatedTrails;
+      filteredTrails = updatedTrails;
+    });
   }
 
   void _filterTrailsByDifficulty(String difficulty) {
@@ -451,9 +491,26 @@ class _HomeScreenState extends State<HomeScreen> {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (context) => TrailDetailScreen(trail: trail),
+                                      builder: (context) => TrailDetailScreen(
+                                        trail: trail,
+                                        onTrailUpdated: (updatedTrail) {
+                                          // This callback will be called when the trail is updated
+                                          setState(() {
+                                            // Update the trail in our lists
+                                            final index = trails.indexWhere((t) => t.id == updatedTrail.id);
+                                            if (index != -1) {
+                                              trails[index] = updatedTrail;
+                                            }
+                                            
+                                            final filteredIndex = filteredTrails.indexWhere((t) => t.id == updatedTrail.id);
+                                            if (filteredIndex != -1) {
+                                              filteredTrails[filteredIndex] = updatedTrail;
+                                            }
+                                          });
+                                        },
+                                      ),
                                     ),
-                                  );
+                                  ).then((_) => _loadTrailsWithReviews()); // Refresh when returning
                                 },
                                 child: Padding(
                                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 10),
@@ -589,6 +646,29 @@ class _HomeScreenState extends State<HomeScreen> {
                                                             color: Colors.white.withOpacity(0.9),
                                                             fontSize: 14,
                                                             fontWeight: FontWeight.w500,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 6),
+                                                    Row(
+                                                      children: [
+                                                        Icon(Icons.star_rate_rounded, size: 16, color: Colors.amber),
+                                                        const SizedBox(width: 6),
+                                                        Text(
+                                                          '${trail.rating?.toStringAsFixed(1) ?? "0.0"} / 5.0',
+                                                          style: TextStyle(
+                                                            color: Colors.white.withOpacity(0.9),
+                                                            fontSize: 14,
+                                                            fontWeight: FontWeight.w500,
+                                                          ),
+                                                        ),
+                                                        const SizedBox(width: 8),
+                                                        Text(
+                                                          '${trail.reviews?.length ?? 0} reviews',
+                                                          style: TextStyle(
+                                                            color: Colors.white.withOpacity(0.7),
+                                                            fontSize: 12,
                                                           ),
                                                         ),
                                                       ],

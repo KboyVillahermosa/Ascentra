@@ -253,15 +253,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildForumSection() {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16.0),
+      padding: const EdgeInsets.symmetric(vertical: 20.0),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: Colors.grey.withOpacity(0.1),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
@@ -274,33 +274,58 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'Hikers\' Forum',
-                  style: TextStyle(
-                    fontSize: 20, 
-                    fontWeight: FontWeight.bold,
-                    color: textColor,
-                  ),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: primaryColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.forum, color: primaryColor, size: 22),
+                    ),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'Hikers\' Forum',
+                      style: TextStyle(
+                        fontSize: 20, 
+                        fontWeight: FontWeight.bold,
+                        color: textColor,
+                      ),
+                    ),
+                  ],
                 ),
                 Row(
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.add, color: primaryColor),
-                      tooltip: 'Create New Topic',
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => CreateForumPostScreen(username: widget.username),
-                          ),
-                        ).then((_) => _loadRecentForumPosts());
-                      },
+                    Material(
+                      color: primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      child: IconButton(
+                        icon: const Icon(Icons.add, color: primaryColor),
+                        tooltip: 'Create New Topic',
+                        constraints: const BoxConstraints(
+                          minWidth: 40,
+                          minHeight: 40,
+                        ),
+                        padding: EdgeInsets.zero,
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => CreateForumPostScreen(username: widget.username),
+                            ),
+                          ).then((_) => _loadRecentForumPosts());
+                        },
+                      ),
                     ),
-                    TextButton(
+                    const SizedBox(width: 8),
+                    TextButton.icon(
                       onPressed: _navigateToForum,
-                      child: const Text(
-                        'See All',
-                        style: TextStyle(color: primaryColor),
+                      icon: const Icon(Icons.arrow_forward, size: 16),
+                      label: const Text('See All'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: primaryColor,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       ),
                     ),
                   ],
@@ -309,10 +334,24 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Text(
+              'Join discussions with fellow hikers',
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 13,
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // Forum post cards carousel
           SizedBox(
-            height: 180,
+            height: 200, // Increased height for better readability
             child: isLoadingForum
               ? const Center(child: CircularProgressIndicator(color: primaryColor))
               : recentForumPosts.isEmpty
@@ -336,6 +375,27 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
           ),
+          
+          if (recentForumPosts.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Center(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: List.generate(
+                  Math.min(recentForumPosts.length, 5),
+                  (index) => Container(
+                    width: 8,
+                    height: 8,
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: index == 0 ? primaryColor : Colors.grey.withOpacity(0.3),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

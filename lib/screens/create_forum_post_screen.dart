@@ -280,13 +280,30 @@ class _CreateForumPostScreenState extends State<CreateForumPostScreen> {
       appBar: AppBar(
         title: const Text('Create New Discussion'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         actions: [
-          TextButton(
-            onPressed: _isLoading ? null : _createPost,
-            child: _isLoading
-                ? const CircularProgressIndicator()
-                : const Text('POST'),
-          ),
+          _isLoading 
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Center(child: SizedBox(
+                    width: 20, 
+                    height: 20, 
+                    child: CircularProgressIndicator(strokeWidth: 2.0),
+                  )),
+                )
+              : TextButton.icon(
+                  onPressed: _createPost,
+                  icon: const Icon(Icons.send),
+                  label: const Text('POST'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Theme.of(context).primaryColor,
+                    textStyle: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
         ],
       ),
       body: SingleChildScrollView(
@@ -294,6 +311,49 @@ class _CreateForumPostScreenState extends State<CreateForumPostScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // User info card
+            Container(
+              margin: const EdgeInsets.only(bottom: 24),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: Theme.of(context).primaryColor.withOpacity(0.2),
+                    child: Icon(
+                      Icons.person,
+                      color: Theme.of(context).primaryColor,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.username,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      Text(
+                        'Creating a new discussion',
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            
+            // Title field
             const Text(
               'Title',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
@@ -301,13 +361,32 @@ class _CreateForumPostScreenState extends State<CreateForumPostScreen> {
             const SizedBox(height: 8),
             TextField(
               controller: _titleController,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 hintText: 'Enter a clear, specific title...',
-                border: OutlineInputBorder(),
+                filled: true,
+                fillColor: Colors.grey.shade50,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: Theme.of(context).primaryColor,
+                    width: 2.0,
+                  ),
+                ),
+                contentPadding: const EdgeInsets.all(16),
               ),
               maxLength: 100,
             ),
             const SizedBox(height: 16),
+            
+            // Content field
             const Text(
               'Content',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
@@ -315,15 +394,34 @@ class _CreateForumPostScreenState extends State<CreateForumPostScreen> {
             const SizedBox(height: 8),
             TextField(
               controller: _contentController,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 hintText: 'Share your thoughts, questions, or tips...',
-                border: OutlineInputBorder(),
+                filled: true,
+                fillColor: Colors.grey.shade50,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: Theme.of(context).primaryColor,
+                    width: 2.0,
+                  ),
+                ),
+                contentPadding: const EdgeInsets.all(16),
                 alignLabelWithHint: true,
               ),
-              maxLines: 10,
+              maxLines: 8,
               maxLength: 2000,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
+            
+            // Attachments section
             if (_attachments.isNotEmpty) ...[
               Row(
                 children: [
@@ -332,110 +430,118 @@ class _CreateForumPostScreenState extends State<CreateForumPostScreen> {
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                   const Spacer(),
-                  TextButton(
+                  TextButton.icon(
                     onPressed: _showAttachmentOptions,
-                    child: const Text('ADD MORE'),
+                    icon: const Icon(Icons.add_photo_alternate, size: 18),
+                    label: const Text('ADD MORE'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Theme.of(context).primaryColor,
+                      textStyle: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               SizedBox(
-                height: 120,
+                height: 140,
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
                   itemCount: _attachments.length,
                   itemBuilder: (context, index) {
                     final attachment = _attachments[index];
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8.0),
+                    return Card(
+                      margin: const EdgeInsets.only(right: 12.0),
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      clipBehavior: Clip.antiAlias,
                       child: Stack(
                         children: [
                           GestureDetector(
                             onTap: () => _showCaptionDialog(index),
-                            child: Container(
-                              width: 120,
-                              height: 120,
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: attachment.type == MediaType.image
-                                    ? Image.file(
-                                        File(attachment.file.path),
-                                        fit: BoxFit.cover,
-                                      )
-                                    : attachment.videoController?.value.isInitialized ?? false
-                                        ? Stack(
-                                            alignment: Alignment.center,
-                                            children: [
-                                              AspectRatio(
-                                                aspectRatio: attachment.videoController!.value.aspectRatio,
-                                                child: VideoPlayer(attachment.videoController!),
+                            child: SizedBox(
+                              width: 140,
+                              height: 140,
+                              child: attachment.type == MediaType.image
+                                  ? Image.file(
+                                      File(attachment.file.path),
+                                      fit: BoxFit.cover,
+                                    )
+                                  : attachment.videoController?.value.isInitialized ?? false
+                                      ? Stack(
+                                          alignment: Alignment.center,
+                                          children: [
+                                            AspectRatio(
+                                              aspectRatio: attachment.videoController!.value.aspectRatio,
+                                              child: VideoPlayer(attachment.videoController!),
+                                            ),
+                                            Container(
+                                              padding: const EdgeInsets.all(8),
+                                              decoration: BoxDecoration(
+                                                color: Colors.black38,
+                                                shape: BoxShape.circle,
                                               ),
-                                              const Icon(
-                                                Icons.play_circle_outline,
-                                                size: 40,
-                                                color: Colors.white70,
+                                              child: const Icon(
+                                                Icons.play_arrow,
+                                                size: 30,
+                                                color: Colors.white,
                                               ),
-                                            ],
-                                          )
-                                        : const Center(child: CircularProgressIndicator()),
-                              ),
+                                            ),
+                                          ],
+                                        )
+                                      : const Center(child: CircularProgressIndicator()),
                             ),
                           ),
+                          // Remove button
                           Positioned(
-                            right: 0,
-                            top: 0,
+                            right: 8,
+                            top: 8,
                             child: GestureDetector(
                               onTap: () => _removeAttachment(index),
                               child: Container(
-                                decoration: const BoxDecoration(
-                                  color: Colors.red,
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: Colors.black54,
                                   shape: BoxShape.circle,
                                 ),
                                 child: const Icon(
                                   Icons.close,
                                   color: Colors.white,
-                                  size: 18,
+                                  size: 16,
                                 ),
                               ),
                             ),
                           ),
+                          // Media type indicator
                           Positioned(
-                            left: 4,
-                            bottom: 4,
+                            left: 8,
+                            bottom: 8,
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
                                 color: Colors.black54,
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                              child: Icon(
-                                attachment.type == MediaType.image ? Icons.image : Icons.videocam,
-                                color: Colors.white,
-                                size: 14,
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    attachment.type == MediaType.image ? Icons.image : Icons.videocam,
+                                    color: Colors.white,
+                                    size: 14,
+                                  ),
+                                  if (attachment.caption?.isNotEmpty ?? false) ...[
+                                    const SizedBox(width: 4),
+                                    const Icon(
+                                      Icons.comment,
+                                      color: Colors.white,
+                                      size: 14,
+                                    ),
+                                  ],
+                                ],
                               ),
                             ),
                           ),
-                          if (attachment.caption?.isNotEmpty ?? false)
-                            Positioned(
-                              right: 20,
-                              bottom: 4,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: Colors.black54,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: const Icon(
-                                  Icons.comment,
-                                  color: Colors.white,
-                                  size: 14,
-                                ),
-                              ),
-                            ),
                         ],
                       ),
                     );
@@ -447,34 +553,86 @@ class _CreateForumPostScreenState extends State<CreateForumPostScreen> {
                 'Attachments (Optional)',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
-                onPressed: _showAttachmentOptions,
-                icon: const Icon(Icons.add_photo_alternate),
-                label: const Text('Add Images or Videos'),
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 50),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200, width: 1),
+                ),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.add_photo_alternate,
+                      size: 48,
+                      color: Theme.of(context).primaryColor.withOpacity(0.7),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Add photos or videos to your post',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.grey,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      onPressed: _showAttachmentOptions,
+                      icon: const Icon(Icons.add),
+                      label: const Text('Add Media'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).primaryColor,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(200, 45),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
-            const SizedBox(height: 24),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.grey[200],
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.person),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Posting as ${widget.username}',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+            
+            const SizedBox(height: 32),
+            
+            // Submit button
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: _isLoading ? null : _createPost,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).primaryColor,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: Colors.grey.shade300,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                ],
+                ),
+                child: _isLoading
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text(
+                        'Publish Post',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
               ),
             ),
+            
+            const SizedBox(height: 40),
           ],
         ),
       ),

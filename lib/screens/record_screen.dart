@@ -296,15 +296,52 @@ class _RecordScreenState extends State<RecordScreen> with WidgetsBindingObserver
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Activity Summary'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Distance: ${_distance.toStringAsFixed(2)} km'),
-            Text('Duration: ${_formatDuration(_elapsedTime)}'),
-            Text('Elevation Gain: ${_elevationGain.toStringAsFixed(0)} m'),
-            Text('Avg Pace: $_pace'),
-          ],
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Activity map thumbnail would go here in a real app
+              Container(
+                height: 150,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Center(child: Text('Activity Map')),
+              ),
+              const SizedBox(height: 24),
+              
+              // Stats in Strava style
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _buildSummaryItem('Distance', '${_distance.toStringAsFixed(2)} km'),
+                  _buildSummaryItem('Duration', _formatDuration(_elapsedTime)),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _buildSummaryItem('Avg Pace', _pace),
+                  _buildSummaryItem('Elev Gain', '${_elevationGain.toStringAsFixed(0)} m'),
+                ],
+              ),
+              
+              const SizedBox(height: 24),
+              
+              // Activity name field like Strava
+              TextField(
+                decoration: const InputDecoration(
+                  labelText: 'Activity Name',
+                  border: OutlineInputBorder(),
+                  hintText: 'Morning Run',
+                ),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -319,10 +356,36 @@ class _RecordScreenState extends State<RecordScreen> with WidgetsBindingObserver
               Navigator.pop(context);
               Navigator.pop(context); // Return to previous screen
             },
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.green,
+            ),
             child: const Text('SAVE'),
           ),
         ],
       ),
+    );
+  }
+  
+  Widget _buildSummaryItem(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.grey.shade600,
+            fontSize: 12,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
+        ),
+      ],
     );
   }
   
@@ -356,250 +419,414 @@ class _RecordScreenState extends State<RecordScreen> with WidgetsBindingObserver
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Activity Tracker'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-      ),
-      body: Column(
+      body: Stack(
         children: [
-          // Stats panel at top
-          Card(
-            margin: const EdgeInsets.all(8.0),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _buildStatColumn('Distance', '${_distance.toStringAsFixed(2)} km'),
-                      _buildStatColumn('Time', _formatDuration(_elapsedTime)),
-                      _buildStatColumn('Pace', _pace),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _buildStatColumn('Elevation', '${_currentElevation.toStringAsFixed(0)} m'),
-                      _buildStatColumn('Elev. Gain', '+${_elevationGain.toStringAsFixed(0)} m'),
-                      _buildStatColumn('Speed', '${_currentSpeed.toStringAsFixed(1)} km/h'),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const Icon(Icons.gps_fixed, size: 16),
-                      const SizedBox(width: 4),
-                      Text(
-                        'GPS: ${_locationAccuracy < 10 ? "High" : _locationAccuracy < 30 ? "Medium" : "Low"} (±${_locationAccuracy.toStringAsFixed(0)}m)',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: _locationAccuracy < 10 ? Colors.green : _locationAccuracy < 30 ? Colors.orange : Colors.red,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+          // Map takes full screen like in Strava
+          FlutterMap(
+            mapController: _mapController,
+            options: MapOptions(
+              initialCenter: _currentPosition != null
+                  ? latlong.LatLng(_currentPosition!.latitude, _currentPosition!.longitude)
+                  : _defaultPosition,
+              initialZoom: 15.0,
             ),
-          ),
-          
-          // OpenStreetMap using flutter_map
-          Expanded(
-            child: FlutterMap(
-              mapController: _mapController,
-              options: MapOptions(
-                initialCenter: _currentPosition != null
-                    ? latlong.LatLng(_currentPosition!.latitude, _currentPosition!.longitude)
-                    : _defaultPosition,
-                initialZoom: 15.0,
+            children: [
+              // Base map layer
+              TileLayer(
+                urlTemplate: _mapSources[_currentMapType],
+                userAgentPackageName: 'com.example.app',
               ),
-              children: [
-                // Base map layer
-                TileLayer(
-                  urlTemplate: _mapSources[_currentMapType],
-                  userAgentPackageName: 'com.example.app',
-                ),
-                
-                // Current location marker
-                if (_currentPosition != null)
-                  MarkerLayer(
-                    markers: [
-                      Marker(
-                        width: 80.0,
-                        height: 80.0,
-                        point: latlong.LatLng(
-                          _currentPosition!.latitude, 
-                          _currentPosition!.longitude
-                        ),
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            // Blue circle background
-                            Container(
-                              width: 24,
-                              height: 24,
-                              decoration: BoxDecoration(
-                                color: Colors.blue.withOpacity(0.3),
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: Colors.blue,
-                                  width: 2,
-                                ),
+              
+              // Current location marker
+              if (_currentPosition != null)
+                MarkerLayer(
+                  markers: [
+                    Marker(
+                      width: 80.0,
+                      height: 80.0,
+                      point: latlong.LatLng(
+                        _currentPosition!.latitude, 
+                        _currentPosition!.longitude
+                      ),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          // Blue circle background
+                          Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              color: Colors.blue.withOpacity(0.3),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.blue,
+                                width: 2,
                               ),
                             ),
-                            // Center dot
-                            Container(
-                              width: 10,
-                              height: 10,
-                              decoration: const BoxDecoration(
-                                color: Colors.blue,
-                                shape: BoxShape.circle,
+                          ),
+                          // Center dot
+                          Container(
+                            width: 10,
+                            height: 10,
+                            decoration: const BoxDecoration(
+                              color: Colors.blue,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              
+              // Route polyline
+              if (_routePoints.isNotEmpty)
+                PolylineLayer(
+                  polylines: [
+                    Polyline(
+                      points: _routePoints,
+                      color: Colors.blue,
+                      strokeWidth: 4.0,
+                    ),
+                  ],
+                ),
+            ],
+          ),
+
+          // Top stats bar - Strava-like
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.9),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.arrow_back),
+                          onPressed: () {
+                            if (_isTracking) {
+                              showDialog(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: const Text('End Activity?'),
+                                  content: const Text('Your current activity will be lost.'),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context),
+                                      child: const Text('CANCEL'),
+                                    ),
+                                    FilledButton(
+                                      onPressed: () {
+                                        Navigator.pop(context);
+                                        Navigator.pop(context);
+                                      },
+                                      child: const Text('END'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            } else {
+                              Navigator.pop(context);
+                            }
+                          },
+                        ),
+                        Text(
+                          'RECORDING',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: _isTracking ? Colors.green : Colors.grey,
+                          ),
+                        ),
+                        // GPS accuracy indicator - Strava style
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.gps_fixed,
+                              size: 16,
+                              color: _locationAccuracy < 10 ? Colors.green : 
+                                    _locationAccuracy < 30 ? Colors.orange : Colors.red,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '±${_locationAccuracy.toStringAsFixed(0)}m',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: _locationAccuracy < 10 ? Colors.green : 
+                                      _locationAccuracy < 30 ? Colors.orange : Colors.red,
                               ),
                             ),
                           ],
                         ),
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 16),
+                    
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        // Strava-like stats display (bigger numbers, smaller labels)
+                        _buildStravasStatDisplay('DISTANCE', '${_distance.toStringAsFixed(2)}', 'km'),
+                        _buildVerticalDivider(),
+                        _buildStravasStatDisplay('TIME', _formatDuration(_elapsedTime), ''),
+                        _buildVerticalDivider(),
+                        _buildStravasStatDisplay('PACE', _pace, ''),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          
+          // Strava-style map control buttons (right side)
+          Positioned(
+            right: 16,
+            bottom: 130,
+            child: Column(
+              children: [
+                // Layer toggle button
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.2),
+                        blurRadius: 5,
+                        offset: const Offset(0, 2),
                       ),
                     ],
                   ),
+                  child: IconButton(
+                    onPressed: _cycleMapType,
+                    icon: Icon(
+                      _currentMapType == 'streets' ? Icons.map : 
+                      _currentMapType == 'satellite' ? Icons.satellite : 
+                      Icons.terrain,
+                    ),
+                    tooltip: 'Change map type',
+                  ),
+                ),
                 
-                // Route polyline
-                if (_routePoints.isNotEmpty)
-                  PolylineLayer(
-                    polylines: [
-                      Polyline(
-                        points: _routePoints,
-                        color: Colors.blue,
-                        strokeWidth: 4.0,
+                const SizedBox(height: 12),
+                
+                // Location button
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.2),
+                        blurRadius: 5,
+                        offset: const Offset(0, 2),
                       ),
                     ],
                   ),
-              ],
-            ),
-          ),
-        ],
-      ),
-      
-      floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
-      floatingActionButton: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          // "Calibrate GPS" button
-          FloatingActionButton(
-            heroTag: 'calibrate',
-            mini: true,
-            onPressed: _calibrateLocation,
-            backgroundColor: Colors.orange,
-            child: const Icon(Icons.gps_fixed),
-          ),
-          const SizedBox(height: 8),
-          
-          // "Find My Location" button
-          FloatingActionButton(
-            heroTag: 'findMe',
-            mini: true,
-            onPressed: () {
-              if (_currentPosition != null) {
-                _mapController.move(
-                  latlong.LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
-                  18.0, // Zoom in more for better visibility
-                );
-              } else {
-                _getCurrentLocation();
-              }
-            },
-            child: const Icon(Icons.my_location),
-          ),
-          
-          const SizedBox(height: 8),
-          
-          // "Change Map Type" button
-          FloatingActionButton(
-            heroTag: 'mapType',
-            mini: true,
-            onPressed: _cycleMapType,
-            child: Icon(
-              _currentMapType == 'streets' ? Icons.map : 
-              _currentMapType == 'satellite' ? Icons.satellite : 
-              Icons.terrain,
-            ),
-          ),
-          
-          const SizedBox(height: 16),
-          
-          // Your existing tracking buttons
-          if (!_isTracking)
-            FloatingActionButton.extended(
-              onPressed: _startTracking,
-              icon: const Icon(Icons.play_arrow),
-              label: const Text('START'),
-              backgroundColor: Colors.green,
-            )
-          else if (_isPaused)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                FloatingActionButton(
-                  onPressed: _resumeTracking,
-                  backgroundColor: Colors.green,
-                  heroTag: 'resume',
-                  child: const Icon(Icons.play_arrow),
+                  child: IconButton(
+                    onPressed: () {
+                      if (_currentPosition != null) {
+                        _mapController.move(
+                          latlong.LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+                          18.0,
+                        );
+                      } else {
+                        _getCurrentLocation();
+                      }
+                    },
+                    icon: const Icon(Icons.my_location),
+                    tooltip: 'Find my location',
+                  ),
                 ),
-                const SizedBox(width: 16),
-                FloatingActionButton(
-                  onPressed: _stopTracking,
-                  backgroundColor: Colors.red,
-                  heroTag: 'stop',
-                  child: const Icon(Icons.stop),
-                ),
-              ],
-            )
-          else
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                FloatingActionButton(
-                  onPressed: _pauseTracking,
-                  backgroundColor: Colors.orange,
-                  heroTag: 'pause',
-                  child: const Icon(Icons.pause),
-                ),
-                const SizedBox(width: 16),
-                FloatingActionButton(
-                  onPressed: _stopTracking,
-                  backgroundColor: Colors.red,
-                  heroTag: 'stop',
-                  child: const Icon(Icons.stop),
+                
+                const SizedBox(height: 12),
+                
+                // Calibrate GPS button
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.2),
+                        blurRadius: 5,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: IconButton(
+                    onPressed: _calibrateLocation,
+                    icon: const Icon(Icons.gps_fixed),
+                    tooltip: 'Calibrate GPS',
+                  ),
                 ),
               ],
             ),
+          ),
+          
+          // Strava-like bottom control panel
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, -3),
+                  ),
+                ],
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              child: _buildTrackingControls(),
+            ),
+          ),
         ],
       ),
     );
   }
   
-  Widget _buildStatColumn(String label, String value) {
+  Widget _buildStravasStatDisplay(String label, String value, String unit) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Text(
           label,
           style: const TextStyle(
-            fontSize: 12,
+            fontSize: 11,
             color: Colors.grey,
+            fontWeight: FontWeight.w500,
           ),
         ),
         const SizedBox(height: 4),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            if (unit.isNotEmpty)
+              Text(
+                ' $unit',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+          ],
         ),
       ],
     );
+  }
+  
+  Widget _buildVerticalDivider() {
+    return Container(
+      height: 40,
+      width: 1,
+      color: Colors.grey.withOpacity(0.3),
+    );
+  }
+  
+  Widget _buildTrackingControls() {
+    if (!_isTracking) {
+      // Start button (large centered button like Strava)
+      return Center(
+        child: SizedBox(
+          width: 160,
+          height: 56,
+          child: ElevatedButton(
+            onPressed: _startTracking,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(28),
+              ),
+            ),
+            child: const Text(
+              'START',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ),
+      );
+    } else if (_isPaused) {
+      // Resume and stop buttons
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          // Stop button
+          ElevatedButton(
+            onPressed: _stopTracking,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              shape: const CircleBorder(),
+              padding: const EdgeInsets.all(16),
+            ),
+            child: const Icon(Icons.stop, size: 32),
+          ),
+          // Resume button
+          ElevatedButton(
+            onPressed: _resumeTracking,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+              shape: const CircleBorder(),
+              padding: const EdgeInsets.all(16),
+            ),
+            child: const Icon(Icons.play_arrow, size: 32),
+          ),
+        ],
+      );
+    } else {
+      // Pause and stop buttons
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          // Stop button
+          ElevatedButton(
+            onPressed: _stopTracking,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              shape: const CircleBorder(),
+              padding: const EdgeInsets.all(16),
+            ),
+            child: const Icon(Icons.stop, size: 32),
+          ),
+          // Pause button
+          ElevatedButton(
+            onPressed: _pauseTracking,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+              shape: const CircleBorder(),
+              padding: const EdgeInsets.all(16),
+            ),
+            child: const Icon(Icons.pause, size: 32),
+          ),
+        ],
+      );
+    }
   }
 }

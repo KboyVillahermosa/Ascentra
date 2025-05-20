@@ -1,25 +1,53 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/activity.dart';
+import '../services/activity_service.dart';
 
-class ActivityHistoryScreen extends StatelessWidget {
+class ActivityHistoryScreen extends StatefulWidget {
   const ActivityHistoryScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    // This would normally come from a database
-    // We're just creating dummy data for demonstration
-    final List<Activity> activities = [
-      // Example activities (in a real app, these would come from storage)
-    ];
+  State<ActivityHistoryScreen> createState() => _ActivityHistoryScreenState();
+}
 
+class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
+  late Future<List<Activity>> _activitiesFuture;
+  
+  @override
+  void initState() {
+    super.initState();
+    _loadActivities();
+  }
+  
+  void _loadActivities() {
+    _activitiesFuture = ActivityService().getActivities();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Activity History'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
-      body: activities.isEmpty
-          ? const Center(
+      body: FutureBuilder<List<Activity>>(
+        future: _activitiesFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          
+          if (snapshot.hasError) {
+            return Center(
+              child: Text('Error: ${snapshot.error}', 
+                style: const TextStyle(color: Colors.red)),
+            );
+          }
+          
+          final activities = snapshot.data ?? [];
+          
+          if (activities.isEmpty) {
+            return const Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -36,66 +64,121 @@ class ActivityHistoryScreen extends StatelessWidget {
                   ),
                 ],
               ),
-            )
-          : ListView.builder(
-              itemCount: activities.length,
-              itemBuilder: (context, index) {
-                final activity = activities[index];
-                return ActivityListItem(activity: activity);
-              },
-            ),
+            );
+          }
+          
+          return ListView.builder(
+            itemCount: activities.length,
+            itemBuilder: (context, index) {
+              final activity = activities[index];
+              return ActivityListItem(
+                activity: activity,
+                onDelete: () {
+                  setState(() {
+                    _activitiesFuture = ActivityService().getActivities();
+                  });
+                },
+              );
+            },
+          );
+        },
+      ),
     );
   }
 }
 
 class ActivityListItem extends StatelessWidget {
   final Activity activity;
+  final Function? onDelete;
   
-  const ActivityListItem({super.key, required this.activity});
+  const ActivityListItem({
+    super.key, 
+    required this.activity,
+    this.onDelete,
+  });
   
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.directions_run, color: Colors.blue),
-                const SizedBox(width: 8),
-                Text(
-                  'Trail Run',
-                  style: Theme.of(context).textTheme.titleMedium,
+    return Dismissible(
+      key: Key('activity-${activity.id}'),
+      background: Container(
+        color: Colors.red,
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20.0),
+        child: const Icon(
+          Icons.delete,
+          color: Colors.white,
+        ),
+      ),
+      direction: DismissDirection.endToStart,
+      confirmDismiss: (direction) async {
+        return await showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: const Text('Delete Activity'),
+              content: const Text('Are you sure you want to delete this activity?'),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Cancel'),
                 ),
-                const Spacer(),
-                Text(
-                  DateFormat('MMM d, yyyy').format(activity.date),
-                  style: Theme.of(context).textTheme.bodySmall,
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text('Delete', style: TextStyle(color: Colors.red)),
                 ),
               ],
-            ),
-            const Divider(),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildActivityStat('Distance', '${activity.distance.toStringAsFixed(2)} km'),
-                _buildActivityStat('Time', _formatDuration(activity.duration)),
-                _buildActivityStat('Pace', activity.paceString),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildActivityStat('Elevation', '+${activity.elevationGain.toStringAsFixed(0)} m'),
-                _buildActivityStat('Avg Speed', '${activity.avgSpeed.toStringAsFixed(1)} km/h'),
-                _buildActivityStat('Calories', '${activity.calories} kcal'),
-              ],
-            ),
-          ],
+            );
+          },
+        );
+      },
+      onDismissed: (direction) {
+        if (onDelete != null) {
+          onDelete!();
+        }
+      },
+      child: Card(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.directions_run, color: Colors.blue),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Trail Run',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const Spacer(),
+                  Text(
+                    DateFormat('MMM d, yyyy').format(activity.date),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+              const Divider(),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildActivityStat('Distance', '${activity.distance.toStringAsFixed(2)} km'),
+                  _buildActivityStat('Time', _formatDuration(Duration(seconds: activity.durationInSeconds))),
+                  _buildActivityStat('Pace', activity.avgPace),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildActivityStat('Elevation', '+${activity.elevationGain.toStringAsFixed(0)} m'),
+                  _buildActivityStat('Avg Speed', '${(activity.distance/(activity.durationInSeconds/3600)).toStringAsFixed(1)} km/h'),
+                  _buildActivityStat('Type', activity.activityType),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

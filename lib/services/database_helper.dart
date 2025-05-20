@@ -46,6 +46,22 @@ class DatabaseHelper {
         authProvider TEXT NOT NULL
       )
     ''');
+
+    // Create activities table
+    await db.execute('''
+      CREATE TABLE activities(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        name TEXT,
+        date TEXT,
+        duration INTEGER, 
+        distance REAL,
+        elevation_gain REAL,
+        avg_pace TEXT,
+        route_points TEXT,
+        FOREIGN KEY (user_id) REFERENCES users (id)
+      )
+    ''');
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {

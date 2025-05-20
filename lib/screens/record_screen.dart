@@ -4,6 +4,9 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' as latlong; // Different LatLng class from flutter_map
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
+import './save_activity_screen.dart';
+import '../models/activity.dart';
+import '../services/activity_service.dart';
 
 class RecordScreen extends StatefulWidget {
   const RecordScreen({super.key});
@@ -45,11 +48,14 @@ class _RecordScreenState extends State<RecordScreen> with WidgetsBindingObserver
   // Map type state
   String _currentMapType = 'streets';
   Map<String, String> _mapSources = {
-    'streets': 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+    'streets': 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', // Removed the {s} subdomain
     'satellite': 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    'terrain': 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
+    'terrain': 'https://stamen-tiles-{s}.a.ssl.fastly.net/terrain/{z}/{x}/{y}.png', // Stamen still uses subdomains
   };
 
+  // Add this controller to your class variables
+  final _activityNameController = TextEditingController();
+  
   @override
   void initState() {
     super.initState();
@@ -190,9 +196,8 @@ class _RecordScreenState extends State<RecordScreen> with WidgetsBindingObserver
     final LocationSettings locationSettings = AndroidSettings(
       accuracy: LocationAccuracy.high,
       distanceFilter: 2, // Update every 2 meters
-      forceLocationManager: true, // This forces the use of the Android LocationManager, which might be more accurate in some regions
+      forceLocationManager: true,
       intervalDuration: const Duration(seconds: 1),
-      //(Optional) Set if your app targets Android 11 or higher
       foregroundNotificationConfig: const ForegroundNotificationConfig(
         notificationText: "Ascentra is tracking your location",
         notificationTitle: "Location Tracking",
@@ -202,53 +207,104 @@ class _RecordScreenState extends State<RecordScreen> with WidgetsBindingObserver
     
     _positionStream = Geolocator.getPositionStream(locationSettings: locationSettings)
       .listen((Position position) {
-        print('New position: ${position.latitude}, ${position.longitude}, accuracy: ${position.accuracy}m');
+        // Add this debug line to confirm data is coming in
+        print('New position: ${position.latitude}, ${position.longitude}, accuracy: ${position.accuracy}m, altitude: ${position.altitude}m, speed: ${position.speed}');
+        
         final newPoint = latlong.LatLng(position.latitude, position.longitude);
         
-        if (position.accuracy <= 20) { // Only add points with accuracy better than 20m
-          _routePoints.add(newPoint);
-          // Continue with calculations
+          // IMPROVED: Less strict filtering and better distance calculation
+        if (position.accuracy <= 20) { // More strict filtering for better accuracy
+          // Check if this is a real movement before adding to route
+          bool isValidMovement = true;
+          
+          if (_routePoints.isNotEmpty) {
+            final lastPoint = _routePoints.last;
+            final distanceFromLastPoint = Geolocator.distanceBetween(
+              lastPoint.latitude, lastPoint.longitude,
+              newPoint.latitude, newPoint.longitude
+            );
+            
+            // Filter out jitter (less than 0.5m movement is likely GPS noise)
+            if (distanceFromLastPoint < 0.5) {
+              isValidMovement = false;
+              print('Skipping point - too close to previous point: ${distanceFromLastPoint}m');
+            }
+          }
+          
+          if (isValidMovement) {
+            setState(() {
+              _routePoints.add(newPoint);
+              _currentPosition = position;
+              _currentSpeed = position.speed * 3.6; // Convert m/s to km/h
+              _locationAccuracy = position.accuracy;
+              
+              // CHANGE: Better elevation handling with sanity check
+              if (position.altitude != 0) { // Only process if altitude is not zero
+                final double prevElevation = _currentElevation;
+                _currentElevation = position.altitude;
+                final elevationDiff = _currentElevation - prevElevation;
+                // Only count reasonable elevation changes (less than 20m in one update)
+                if (elevationDiff > 0 && elevationDiff < 20) {
+                  _elevationGain += elevationDiff;
+                }
+              }
+              
+              if (_routePoints.length > 1) {
+                // Distance calculation - improved
+                final prevPoint = _routePoints[_routePoints.length - 2];
+                final distanceInMeters = Geolocator.distanceBetween(
+                  prevPoint.latitude, prevPoint.longitude,
+                  newPoint.latitude, newPoint.longitude
+                );
+                
+                // Lower threshold to 0.5 meter to capture smaller movements
+                if (distanceInMeters > 0.5) {
+                  _distance += distanceInMeters / 1000;
+                  _updatePace();
+                  // Enhanced debug to track calculations
+                  print('Distance updated: $_distance km, Added: ${distanceInMeters}m, Pace: $_pace');
+                }
+              }
+            });
+            
+            // Move map to follow user
+            _mapController.move(newPoint, _mapController.zoom);
+          }
         } else {
           print('Skipping low accuracy point: ${position.accuracy}m');
         }
-        
+      },
+      onError: (e) {
+        // Add error handling
+        print('Position stream error: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Location error: $e')),
+        );
+      });
+  }
+  
+  // Add this method after _startPositionTracking()
+  void _updatePace() {
+    // More reliable pace calculation - any movement counts
+    if (_distance > 0.001 && _elapsedTime.inSeconds > 0) { // Lowered threshold to 1 meter
+      final secondsPerKm = _elapsedTime.inSeconds / _distance;
+      final mins = (secondsPerKm / 60).floor();
+      final secs = (secondsPerKm % 60).floor();
+      
+      // Ensure pace is reasonable (between 2-60 min/km)
+      if (mins >= 2 && mins <= 60) {
         setState(() {
-          _currentPosition = position;
-          _currentSpeed = position.speed * 3.6; // Convert m/s to km/h
-          _locationAccuracy = position.accuracy;
-          
-          final double prevElevation = _currentElevation;
-          _currentElevation = position.altitude;
-          final elevationDiff = _currentElevation - prevElevation;
-          if (elevationDiff > 0) {
-            _elevationGain += elevationDiff;
-          }
-          
-          if (_routePoints.length > 1) {
-            final prevPoint = _routePoints[_routePoints.length - 2];
-            final distanceInMeters = Geolocator.distanceBetween(
-              prevPoint.latitude, prevPoint.longitude,
-              newPoint.latitude, newPoint.longitude
-            );
-            print('Distance between points: ${distanceInMeters}m');
-            _distance += distanceInMeters / 1000;
-            
-            if (_distance > 0) {
-              final secondsPerKm = _elapsedTime.inSeconds / _distance;
-              final mins = (secondsPerKm / 60).floor();
-              final secs = (secondsPerKm % 60).floor();
-              _pace = "$mins:${secs.toString().padLeft(2, '0')} /km";
-            }
-          }
+          _pace = "$mins:${secs.toString().padLeft(2, '0')} /km";
         });
-        
-        if (_routePoints.isNotEmpty) {
-          print('Route points: ${_routePoints.length}');
-        }
-        
-        // Move map to follow user
-        _mapController.move(newPoint, _mapController.zoom);
-    });
+        print('Pace calculated: $_pace (${secondsPerKm.toStringAsFixed(1)} sec/km)');
+      } else {
+        print('Pace calculation produced unusual value: $mins:$secs min/km');
+      }
+    } else {
+      setState(() {
+        _pace = "0:00 /km"; // Default pace when not moving
+      });
+    }
   }
   
   void _pauseTracking() {
@@ -282,16 +338,46 @@ class _RecordScreenState extends State<RecordScreen> with WidgetsBindingObserver
       _isPaused = false;
     });
     
-    if (_routePoints.length > 1) {
-      _showActivitySummary();
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Not enough data to save activity')),
-      );
+    // Always navigate to save activity screen, regardless of activity length
+    _navigateToSaveActivity();
+  }
+  
+  // New method to navigate to save activity screen
+  void _navigateToSaveActivity() {
+    // Ensure we have at least one route point
+    if (_routePoints.isEmpty && _currentPosition != null) {
+      _routePoints.add(latlong.LatLng(_currentPosition!.latitude, _currentPosition!.longitude));
     }
+    
+    // Create activity object with initial data
+    final activity = Activity(
+      userId: 1, // Replace with actual user ID when available
+      name: '', // Will be filled in SaveActivityScreen
+      date: DateTime.now(),
+      durationInSeconds: _elapsedTime.inSeconds,
+      distance: _distance,
+      elevationGain: _elevationGain,
+      avgPace: _pace,
+      routePoints: _routePoints,
+      description: '',
+      activityType: 'Run', // Default
+      feeling: '',
+      privateNotes: '',
+    );
+    
+    // Navigate to SaveActivityScreen
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SaveActivityScreen(activity: activity),
+      ),
+    );
   }
   
   void _showActivitySummary() {
+    // Reset activity name controller
+    _activityNameController.text = '';
+    
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -334,6 +420,7 @@ class _RecordScreenState extends State<RecordScreen> with WidgetsBindingObserver
               
               // Activity name field like Strava
               TextField(
+                controller: _activityNameController,
                 decoration: const InputDecoration(
                   labelText: 'Activity Name',
                   border: OutlineInputBorder(),
@@ -351,10 +438,49 @@ class _RecordScreenState extends State<RecordScreen> with WidgetsBindingObserver
             child: const Text('DISCARD'),
           ),
           FilledButton(
-            onPressed: () {
-              // Save activity to database
-              Navigator.pop(context);
-              Navigator.pop(context); // Return to previous screen
+            onPressed: () async {
+              try {
+                // Get activity name from controller
+                final activityName = _activityNameController.text.trim();
+                final defaultName = 'Activity ${DateTime.now().toString().substring(0, 16)}';
+                
+                // Debug the data before saving
+                print('Saving activity with: Distance: $_distance km, ElevGain: $_elevationGain m, Points: ${_routePoints.length}');
+                
+                final activity = Activity(
+                  userId: 1, // Replace with actual user ID when available
+                  name: activityName.isEmpty ? defaultName : activityName,
+                  date: DateTime.now(),
+                  durationInSeconds: _elapsedTime.inSeconds,
+                  distance: _distance,
+                  elevationGain: _elevationGain,
+                  avgPace: _pace,
+                  routePoints: _routePoints,
+                );
+                
+                // Save to database
+                final activityService = ActivityService();
+                final result = await activityService.saveActivity(activity);
+                
+                print('Save result: $result'); // Debug output
+                
+                Navigator.pop(context);
+                
+                if (result > 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Activity saved successfully!')),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Failed to save activity - database error')),
+                  );
+                }
+              } catch (e) {
+                print('Error saving activity: $e');
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Error: $e')),
+                );
+              }
             },
             style: FilledButton.styleFrom(
               backgroundColor: Colors.green,
@@ -429,14 +555,35 @@ class _RecordScreenState extends State<RecordScreen> with WidgetsBindingObserver
                   ? latlong.LatLng(_currentPosition!.latitude, _currentPosition!.longitude)
                   : _defaultPosition,
               initialZoom: 15.0,
+              minZoom: 5.0,
+              maxZoom: 18.0,
+              keepAlive: true,
             ),
             children: [
               // Base map layer
               TileLayer(
                 urlTemplate: _mapSources[_currentMapType],
-                userAgentPackageName: 'com.example.app',
+                userAgentPackageName: 'com.example.ascentra',
+                // Only use subdomains for map types that support them
+                subdomains: _currentMapType == 'terrain' ? const ['a', 'b', 'c'] : const [],
+                maxZoom: 19,
+                // Add additional error handling
+                errorImage: const NetworkImage('https://tile.openstreetmap.org/15/0/0.png'),
               ),
               
+              // Route polyline with enhanced visibility
+              if (_routePoints.isNotEmpty)
+                PolylineLayer(
+                  polylines: [
+                    Polyline(
+                      points: _routePoints,
+                      color: Colors.blue,
+                      strokeWidth: 5.0,
+                      isDotted: false,
+                    ),
+                  ],
+                ),
+                
               // Current location marker
               if (_currentPosition != null)
                 MarkerLayer(
@@ -475,18 +622,6 @@ class _RecordScreenState extends State<RecordScreen> with WidgetsBindingObserver
                           ),
                         ],
                       ),
-                    ),
-                  ],
-                ),
-              
-              // Route polyline
-              if (_routePoints.isNotEmpty)
-                PolylineLayer(
-                  polylines: [
-                    Polyline(
-                      points: _routePoints,
-                      color: Colors.blue,
-                      strokeWidth: 4.0,
                     ),
                   ],
                 ),
